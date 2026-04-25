@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from './lib/supabase'
+import { supabase, supabaseConfigured } from './lib/supabase'
 import { Header } from './components/Header'
 import { Board } from './components/Board'
 import { ActivitiesBoard } from './components/MonthlyBoard'
@@ -62,6 +62,20 @@ export default function App() {
       setActivityCelebration(celebrationQueue.current.shift() ?? null)
     }
   }, [activityCelebration])
+
+  // ── Variables de entorno no configuradas ──────────────────────────────────
+  if (!supabaseConfigured) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black px-6">
+        <div className="max-w-md text-center">
+          <p className="text-rose-400 text-sm font-mono bg-rose-400/10 border border-rose-400/20 rounded-xl px-5 py-4">
+            ⚠️ Variables de entorno no encontradas.<br />
+            Añade <strong>VITE_SUPABASE_URL</strong> y <strong>VITE_SUPABASE_ANON_KEY</strong> en Vercel → Settings → Environment Variables y haz redeploy.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   // ── Pantalla de carga inicial (verificando sesión) ─────────────────────────
   if (session === undefined || isLoading) {
