@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { Session } from '@supabase/supabase-js'
+import { supabase } from './lib/supabase'
 import { Header } from './components/Header'
 import { Board } from './components/Board'
 import { ActivitiesBoard } from './components/MonthlyBoard'
 import { ActivityCelebration } from './components/ActivityCelebration'
+import { Login } from './components/Login'
 import { useTheme } from './hooks/useTheme'
 import { useKanbanStore } from './store/kanbanStore'
 
@@ -11,42 +14,70 @@ interface ActivityCelebrationItem {
   title: string
 }
 
+// undefined = todavía verificando sesión | null = sin sesión | Session = autenticado
+type SessionState = Session | null | undefined
+
 export default function App() {
   const { theme, toggle } = useTheme()
   const isDark = theme === 'dark'
   const activeView = useKanbanStore((s) => s.activeView)
+  const loadUserData = useKanbanStore((s) => s.loadUserData)
+  const isLoading = useKanbanStore((s) => s.isLoading)
+
+  const [session, setSession] = useState<SessionState>(undefined)
   const [activityCelebration, setActivityCelebration] = useState<ActivityCelebrationItem | null>(null)
   const celebrationQueue = useRef<ActivityCelebrationItem[]>([])
 
+  // ── Escucha cambios de sesión ──────────────────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      if (session?.user) loadUserData(session.user.id)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+      if (session?.user) loadUserData(session.user.id)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [loadUserData])
+
+  // ── Cola de celebraciones ──────────────────────────────────────────────────
   const enqueueActivityCelebration = useCallback((activity: ActivityCelebrationItem) => {
-    const queuedIds = new Set([
-      activityCelebration?.id,
-      ...celebrationQueue.current.map((item) => item.id),
-    ].filter(Boolean) as string[])
-
+    const queuedIds = new Set(
+      [activityCelebration?.id, ...celebrationQueue.current.map((i) => i.id)].filter(Boolean) as string[],
+    )
     if (queuedIds.has(activity.id)) return
-
     celebrationQueue.current.push(activity)
-
-    if (!activityCelebration) {
-      setActivityCelebration(celebrationQueue.current.shift() ?? null)
-    }
+    if (!activityCelebration) setActivityCelebration(celebrationQueue.current.shift() ?? null)
   }, [activityCelebration])
 
   useEffect(() => {
     if (activityCelebration) {
-      const timer = setTimeout(() => {
-        setActivityCelebration(null)
-      }, 3200)
-
-      return () => clearTimeout(timer)
+      const t = setTimeout(() => setActivityCelebration(null), 3200)
+      return () => clearTimeout(t)
     }
-
     if (celebrationQueue.current.length > 0) {
       setActivityCelebration(celebrationQueue.current.shift() ?? null)
     }
   }, [activityCelebration])
 
+  // ── Pantalla de carga inicial (verificando sesión) ─────────────────────────
+  if (session === undefined || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="w-8 h-8 rounded-full border-2 border-teal-500/30 border-t-teal-500 animate-spin" />
+      </div>
+    )
+  }
+
+  // ── Sin sesión → mostrar login ─────────────────────────────────────────────
+  if (session === null) {
+    return <Login />
+  }
+
+  // ── Autenticado → mostrar tablero ──────────────────────────────────────────
   return (
     <div
       className="grain min-h-screen flex flex-col bg-surface-0 relative"
@@ -76,14 +107,12 @@ export default function App() {
         style={
           isDark
             ? {
-                backgroundImage:
-                  'radial-gradient(circle, rgba(255,255,255,0.18) 1.2px, transparent 1.2px)',
+                backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.18) 1.2px, transparent 1.2px)',
                 backgroundSize: '32px 32px',
                 opacity: 0.65,
               }
             : {
-                backgroundImage:
-                  'radial-gradient(circle, rgba(0,0,0,0.14) 1.2px, transparent 1.2px)',
+                backgroundImage: 'radial-gradient(circle, rgba(0,0,0,0.14) 1.2px, transparent 1.2px)',
                 backgroundSize: '32px 32px',
                 opacity: 0.55,
               }
@@ -94,7 +123,11 @@ export default function App() {
 
       {/* Content */}
       <div className="relative z-10 flex flex-col flex-1 min-h-screen">
-        <Header isDark={isDark} onToggleTheme={toggle} />
+        <Header
+          isDark={isDark}
+          onToggleTheme={toggle}
+          onSignOut={() => supabase.auth.signOut()}
+        />
         <main className="flex-1 flex flex-col min-h-0 pt-6">
           {activeView === 'tasks'
             ? <Board onActivityCompleted={enqueueActivityCelebration} />

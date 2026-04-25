@@ -1,12 +1,13 @@
-import { LayoutGrid, Sun, Moon } from 'lucide-react'
+import { LayoutGrid, Sun, Moon, LogOut } from 'lucide-react'
 import { useKanbanStore } from '../store/kanbanStore'
 
 interface HeaderProps {
   isDark: boolean
   onToggleTheme: () => void
+  onSignOut: () => void
 }
 
-export function Header({ isDark, onToggleTheme }: HeaderProps) {
+export function Header({ isDark, onToggleTheme, onSignOut }: HeaderProps) {
   const { activeView, setActiveView } = useKanbanStore()
 
   const today = new Date()
@@ -73,6 +74,16 @@ export function Header({ isDark, onToggleTheme }: HeaderProps) {
                 : <Sun className="theme-toggle-icon text-text-secondary" />
               }
             </div>
+          </button>
+
+          {/* Sign out */}
+          <button
+            onClick={onSignOut}
+            title="Cerrar sesión"
+            aria-label="Cerrar sesión"
+            className="flex items-center justify-center w-9 h-9 rounded-xl bg-surface-3 border border-border text-text-muted hover:text-text-secondary hover:border-border-hover transition-all duration-150"
+          >
+            <LogOut size={15} />
           </button>
         </div>
       </div>
