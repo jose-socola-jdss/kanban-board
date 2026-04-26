@@ -5,7 +5,7 @@ import { Pencil, Trash2, GripVertical, CalendarDays, Check, Target, Clock } from
 import type { Task, ColumnConfig } from '../types'
 import { PRIORITY_CONFIG } from '../types'
 import { useKanbanStore } from '../store/kanbanStore'
-import { getEffectiveDueDate, getTodayString } from '../utils/date'
+import { getEffectiveDueDate } from '../utils/date'
 import { useEffect } from 'react'
 
 interface TaskCardProps {
