@@ -110,7 +110,22 @@ export const useKanbanStore = create<KanbanStore>()(
         ))
       }
 
-      set({ activities, tasks, isLoading: false })
+      // Sync active task from DB tags
+      const activeTaskFromDb = tasks.find(t => t.tags?.some(tag => tag.startsWith('__ACTIVE_TASK:')))
+      const newActiveTaskId = activeTaskFromDb ? activeTaskFromDb.id : null
+      let newActiveTaskStartedAt = null
+      if (activeTaskFromDb) {
+        const tagStr = activeTaskFromDb.tags!.find(tag => tag.startsWith('__ACTIVE_TASK:'))!
+        newActiveTaskStartedAt = parseInt(tagStr.split(':')[1], 10) || Date.now()
+      }
+
+      set({ 
+        activities, 
+        tasks, 
+        activeTaskId: newActiveTaskId,
+        activeTaskStartedAt: newActiveTaskStartedAt,
+        isLoading: false 
+      })
     } catch (err) {
       console.error('Error cargando datos:', err)
       set({ isLoading: false })
@@ -223,6 +238,12 @@ export const useKanbanStore = create<KanbanStore>()(
 
     // Clear active task if it's completed or moved away from thisWeek
     const clearsActive = activeTaskId === id && updates.column !== undefined && updates.column !== 'thisWeek'
+    if (clearsActive) {
+      const current = get().tasks.find((t) => t.id === id)
+      if (current) {
+        enriched.tags = current.tags?.filter((t) => !t.startsWith('__ACTIVE_TASK:')) || []
+      }
+    }
 
     set((state) => {
       const newTasks = state.tasks.map((t) => (t.id === id ? { ...t, ...enriched } : t))
@@ -275,10 +296,17 @@ export const useKanbanStore = create<KanbanStore>()(
     const now = new Date().toISOString()
     const completedAt = column === 'completed' ? now : undefined
     const clearsActive = activeTaskId === id && column !== 'thisWeek'
+    let finalTags: string[] | undefined
+    if (clearsActive) {
+      const current = get().tasks.find((t) => t.id === id)
+      if (current) {
+        finalTags = current.tags?.filter((t) => !t.startsWith('__ACTIVE_TASK:')) || []
+      }
+    }
 
     set((state) => {
       const newTasks = state.tasks.map((t) =>
-        t.id === id ? { ...t, column, completedAt } : t,
+        t.id === id ? { ...t, column, completedAt, ...(finalTags ? { tags: finalTags } : {}) } : t,
       )
       const stateUpdate: Partial<KanbanStore> = { tasks: newTasks }
       if (clearsActive) {
@@ -301,7 +329,7 @@ export const useKanbanStore = create<KanbanStore>()(
       }
       return stateUpdate
     })
-    db.updateTask(id, { column, completedAt }, userId).catch((err) => {
+    db.updateTask(id, { column, completedAt, ...(finalTags ? { tags: finalTags } : {}) }, userId).catch((err) => {
       console.error(err)
       alert('Error al mover tarea: ' + err.message)
     })
@@ -321,12 +349,43 @@ export const useKanbanStore = create<KanbanStore>()(
   setSelectedMonth: (selectedMonth) => set({ selectedMonth }),
 
   startTask: (id) => {
-    set({ activeTaskId: id, activeTaskStartedAt: Date.now() })
+    const { userId, tasks, activeTaskId } = get()
+    if (!userId) return
+    const now = Date.now()
+    const activeTag = `__ACTIVE_TASK:${now}__`
+    
+    set({ activeTaskId: id, activeTaskStartedAt: now })
+
+    // Clear tag from previously active task if any
+    if (activeTaskId && activeTaskId !== id) {
+      const prev = tasks.find(t => t.id === activeTaskId)
+      if (prev) {
+        const newTags = prev.tags?.filter(t => !t.startsWith('__ACTIVE_TASK:')) || []
+        get().updateTask(prev.id, { tags: newTags })
+      }
+    }
+    
+    // Add tag to new active task
+    const current = tasks.find(t => t.id === id)
+    if (current) {
+      const currentTags = current.tags?.filter(t => !t.startsWith('__ACTIVE_TASK:')) || []
+      get().updateTask(id, { tags: [...currentTags, activeTag] })
+    }
   },
 
-      stopTask: () => {
-        set({ activeTaskId: null, activeTaskStartedAt: null })
-      },
+  stopTask: () => {
+    const { activeTaskId, tasks } = get()
+    const currentActiveId = activeTaskId
+    set({ activeTaskId: null, activeTaskStartedAt: null })
+    
+    if (currentActiveId) {
+      const prev = tasks.find(t => t.id === currentActiveId)
+      if (prev) {
+        const newTags = prev.tags?.filter(t => !t.startsWith('__ACTIVE_TASK:')) || []
+        get().updateTask(prev.id, { tags: newTags })
+      }
+    }
+  },
     }),
     {
       name: 'kanban-storage',
