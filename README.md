@@ -2,6 +2,8 @@
 
 Tablero kanban personal para gestión de actividades y tareas. Cada actividad agrupa un conjunto de tareas que avanzan por tres columnas: **Pendientes → En progreso → Finalizadas**. Al completar la última tarea de una actividad se dispara una animación de celebración en pantalla completa.
 
+El modo claro usa un fondo azul-gris suave (`#EEF1F7`) con columnas y tarjetas en blanco puro, siguiendo la misma paleta de la interfaz de referencia fisholg.com.
+
 **URL de producción:** https://kanban-board-ruby-nu.vercel.app
 
 ---

@@ -5,11 +5,11 @@
 /* ─── LIGHT MODE (default) ──────────────────────────────────── */
 :root {
   /* Surface colors as R G B channels (enables Tailwind opacity modifiers) */
-  --surface-0: 255 255 255;        /* #ffffff  — page background */
-  --surface-1: 240 245 250;        /* #f0f5fa  — column background */
-  --surface-2: 229 237 247;        /* #e5edf7  — modals / panels */
+  --surface-0: 238 241 247;        /* #eef1f7  — page background (blue-gray) */
+  --surface-1: 255 255 255;        /* #ffffff  — column background (white) */
+  --surface-2: 245 248 253;        /* #f5f8fd  — modals / panels */
   --surface-3: 255 255 255;        /* #ffffff  — cards */
-  --surface-4: 222 232 244;        /* #dee8f4  — hover states */
+  --surface-4: 229 235 246;        /* #e5ebf6  — hover states */
 
   /* Borders */
   --color-border: rgba(0, 0, 0, 0.09);
@@ -33,7 +33,7 @@
   --scrollbar-thumb: rgba(0, 0, 0, 0.14);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.26);
   --column-scroll-color: rgba(0, 0, 0, 0.10);
-  --glass-card-bg: rgba(240, 245, 250, 0.7);
+  --glass-card-bg: rgba(255, 255, 255, 0.7);
   --select-option-bg: #ffffff;
   --select-option-color: #0d1526;
 }
