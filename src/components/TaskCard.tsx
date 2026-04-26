@@ -27,6 +27,7 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHo
   const deleteTask = useKanbanStore((s) => s.deleteTask)
   const activities = useKanbanStore((s) => s.activities)
   const tasks = useKanbanStore((s) => s.tasks)
+  const activeTaskId = useKanbanStore((s) => s.activeTaskId)
   const activity = activities.find((a) => a.id === task.activityId)
   const priority = PRIORITY_CONFIG[task.priority]
   const isCompleted = task.column === 'completed'
@@ -59,6 +60,8 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHo
     ['--task-shadow-hover' as string]: `var(--shadow-card-hover), 0 0 0 1px ${column.accentColor}24, 0 0 26px ${column.accentColor}10`,
     ['--task-shadow-drag' as string]: `var(--shadow-drag), 0 0 0 1px ${column.accentColor}40, 0 0 34px ${column.accentColor}16`,
   }
+
+  const isActive = activeTaskId === task.id
 
   // Due date info for pending / in-progress
   const dueDateLabel = (() => {
@@ -95,6 +98,7 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHo
         className={`
         task-card group relative rounded-xl border
         transition-all duration-200
+        ${isActive ? 'ring-1 ring-teal-500/30 border-teal-500/40 bg-teal-500/[0.03]' : ''}
         ${isDragging
           ? 'dragging opacity-40 scale-95'
           : 'opacity-100 scale-100'
@@ -108,9 +112,9 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHo
         style={{ background: column.accentColor, opacity: 0.8 }}
       />
 
-      <div className="px-4 py-3.5 pl-5">
+      <div className={`px-4 ${isParaHoy ? 'py-2.5' : 'py-3.5'} pl-5`}>
         {/* Top row: drag handle + title + actions/time */}
-        <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex items-start justify-between gap-1.5 mb-2">
           <div className="flex items-start gap-2 flex-1 min-w-0">
             {/* Drag handle */}
             <button
@@ -134,28 +138,28 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHo
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-            {/* Time selectors (Para hoy column) - MOVED TO TOP RIGHT & STACKED */}
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            {/* Time selectors (Para hoy column) - COMPACTED */}
             {isParaHoy && !isCompleted && (
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-1 justify-end">
-                  <span className="text-[8px] font-body text-text-muted uppercase tracking-tighter opacity-60">Ini</span>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1 justify-end leading-none">
+                  <span className="text-[7px] font-body text-text-muted uppercase tracking-tighter opacity-50">Ini</span>
                   <input
                     type="time"
                     value={task.scheduledStart || ''}
                     onChange={(e) => updateTask(task.id, { scheduledStart: e.target.value })}
                     onPointerDown={(e) => e.stopPropagation()}
-                    className="bg-surface-4/40 border border-border/40 rounded px-1 py-0.5 text-[10px] font-body text-text-secondary focus:outline-none focus:border-week/40 hover:border-week/20 transition-all w-[65px] cursor-pointer"
+                    className="bg-surface-4/40 border border-border/30 rounded px-1 py-0 text-[9px] font-body text-text-secondary focus:outline-none focus:border-week/40 hover:border-week/20 transition-all w-[58px] cursor-pointer"
                   />
                 </div>
-                <div className="flex items-center gap-1 justify-end">
-                  <span className="text-[8px] font-body text-text-muted uppercase tracking-tighter opacity-60">Fin</span>
+                <div className="flex items-center gap-1 justify-end leading-none">
+                  <span className="text-[7px] font-body text-text-muted uppercase tracking-tighter opacity-50">Fin</span>
                   <input
                     type="time"
                     value={task.scheduledEnd || ''}
                     onChange={(e) => updateTask(task.id, { scheduledEnd: e.target.value })}
                     onPointerDown={(e) => e.stopPropagation()}
-                    className="bg-surface-4/40 border border-border/40 rounded px-1 py-0.5 text-[10px] font-body text-text-secondary focus:outline-none focus:border-week/40 hover:border-week/20 transition-all w-[65px] cursor-pointer"
+                    className="bg-surface-4/40 border border-border/30 rounded px-1 py-0 text-[9px] font-body text-text-secondary focus:outline-none focus:border-week/40 hover:border-week/20 transition-all w-[58px] cursor-pointer"
                   />
                 </div>
               </div>

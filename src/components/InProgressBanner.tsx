@@ -47,7 +47,11 @@ export function InProgressBanner({ mode }: InProgressBannerProps) {
 
   // In projects mode: show active project info (no timer, no buttons)
   if (mode === 'projects') {
-    if (!activeTask) {
+    const projectActivity = activeTask?.activityId
+      ? activities.find((a) => a.id === activeTask.activityId)
+      : null
+
+    if (!projectActivity) {
       return (
         <div className="px-6 md:px-10 max-w-[1400px] mx-auto w-full mb-4">
           <div className="w-full rounded-2xl border border-dashed border-border/40 bg-surface-1/30 px-5 py-3 flex items-center gap-3">
@@ -61,10 +65,7 @@ export function InProgressBanner({ mode }: InProgressBannerProps) {
         </div>
       )
     }
-    const projectActivity = activeTask.activityId
-      ? activities.find((a) => a.id === activeTask.activityId)
-      : null
-    const displayName = projectActivity ? projectActivity.title : activeTask.title
+
     return (
       <div className="px-6 md:px-10 max-w-[1400px] mx-auto w-full mb-4">
         <div className="w-full rounded-2xl border border-teal-500/30 bg-gradient-to-r from-teal-500/10 to-cyan-500/5 px-5 py-3 flex items-center gap-3">
@@ -72,8 +73,8 @@ export function InProgressBanner({ mode }: InProgressBannerProps) {
             <Play size={11} className="text-teal-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <span className="text-[10px] font-body text-teal-400/70 uppercase tracking-wide">En progreso</span>
-            <p className="text-sm font-body font-500 text-text-primary truncate">{displayName}</p>
+            <span className="text-[10px] font-body text-teal-400/70 uppercase tracking-wide">Proyecto en progreso</span>
+            <p className="text-sm font-body font-500 text-text-primary truncate">{projectActivity.title}</p>
           </div>
         </div>
       </div>
