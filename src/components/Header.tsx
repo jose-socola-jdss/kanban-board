@@ -88,10 +88,6 @@ export function Header({ isDark, onToggleTheme, onSignOut }: HeaderProps) {
         </div>
       </div>
 
-      {/* Separator */}
-      <div className="max-w-[1400px] mx-auto mt-6">
-        <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-      </div>
     </header>
   )
 }
