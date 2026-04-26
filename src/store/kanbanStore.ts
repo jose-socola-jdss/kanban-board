@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import type { Task, ColumnId, Activity, Priority, ViewMode, SchedulingType, RecurringType } from '../types'
 import { getCurrentMonthKey, getNextOccurrence } from '../utils/date'
 import { db } from '../lib/db'
@@ -54,7 +55,9 @@ interface KanbanStore {
   stopTask: () => void
 }
 
-export const useKanbanStore = create<KanbanStore>()((set, get) => ({
+export const useKanbanStore = create<KanbanStore>()(
+  persist(
+    (set, get) => ({
   activities: [],
   tasks: [],
   activeView: 'tasks',
@@ -286,7 +289,20 @@ export const useKanbanStore = create<KanbanStore>()((set, get) => ({
     set({ activeTaskId: id, activeTaskStartedAt: Date.now() })
   },
 
-  stopTask: () => {
-    set({ activeTaskId: null, activeTaskStartedAt: null })
-  },
-}))
+      stopTask: () => {
+        set({ activeTaskId: null, activeTaskStartedAt: null })
+      },
+    }),
+    {
+      name: 'kanban-storage',
+      // Solo persistimos lo esencial, evitamos persistir estados de carga o el userId
+      // para que se manejen correctamente en el arranque
+      partialize: (state) => ({
+        activities: state.activities,
+        tasks: state.tasks,
+        activeView: state.activeView,
+        selectedMonth: state.selectedMonth,
+      }),
+    }
+  )
+)

@@ -165,7 +165,9 @@ create table public.tasks (
   recurring_type      text check (recurring_type in ('daily', 'weekly', 'monthly')),
   recurring_week_day  integer,
   recurring_month_day integer,
-  recurring_end_date  text
+  recurring_end_date  text,
+  scheduled_start     text,
+  scheduled_end       text
 );
 
 alter table public.activities enable row level security;
