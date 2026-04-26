@@ -85,7 +85,7 @@ function ActivityColumn({ column, activities, tasks, enterIndex }: ActivityColum
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <div className="h-0.5 w-4 rounded-full opacity-70" style={{ background: column.accentColor }} />
                   <span className="text-[10px] font-body text-text-muted">
-                    {activities.length} {activities.length === 1 ? 'actividad' : 'actividades'}
+                    {activities.length} {activities.length === 1 ? 'proyecto' : 'proyectos'}
                   </span>
                 </div>
               </div>
@@ -95,7 +95,7 @@ function ActivityColumn({ column, activities, tasks, enterIndex }: ActivityColum
               <button
                 onClick={() => setShowModal(true)}
                 className="p-1.5 rounded-lg border transition-all duration-150 text-text-muted border-border hover:border-border-hover hover:text-text-primary"
-                title="Agregar actividad"
+                title="Agregar proyecto"
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = `${column.accentColor}15` }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
               >
@@ -141,9 +141,9 @@ function ActivityColumn({ column, activities, tasks, enterIndex }: ActivityColum
 
 function ActivityEmptyState({ column }: { column: ColumnConfig }) {
   const messages: Record<ColumnId, string> = {
-    pending:   'Sin actividades pendientes',
-    thisWeek:  'Ninguna actividad en progreso',
-    completed: 'Aún sin actividades completadas',
+    pending:   'Sin proyectos pendientes',
+    thisWeek:  'Ningún proyecto en progreso',
+    completed: 'Aún sin proyectos completados',
   }
   return (
     <div className="flex flex-col items-center justify-center py-10 rounded-xl border border-dashed border-border/50">

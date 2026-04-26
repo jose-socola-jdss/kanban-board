@@ -1,6 +1,6 @@
 # Kanban — Mi Tablero
 
-Tablero kanban personal para gestión de actividades y tareas. Cada actividad agrupa un conjunto de tareas que avanzan por tres columnas: **Pendientes → En progreso → Finalizadas**. Al completar la última tarea de una actividad se dispara una animación de celebración en pantalla completa.
+Tablero kanban personal para gestión de proyectos y tareas. Cada proyecto agrupa un conjunto de tareas que avanzan por tres columnas: **Pendientes → En progreso → Finalizadas**. Al completar la última tarea de un proyecto se dispara una animación de celebración en pantalla completa. Las tareas también pueden crearse sin asociarlas a ningún proyecto.
 
 El modo claro usa un fondo azul-gris suave (`#EEF1F7`) con columnas y tarjetas en blanco puro, siguiendo la misma paleta de la interfaz de referencia fisholg.com.
 
@@ -39,13 +39,13 @@ src/
 │   ├── TaskCard.tsx             # Tarjeta de tarea con celebración al completar
 │   ├── DragCard.tsx             # Overlay durante el arrastre
 │   ├── TaskModal.tsx            # Modal para crear/editar tareas
-│   ├── MonthlyBoard.tsx         # Vista de actividades
-│   ├── GoalCard.tsx             # Tarjeta de actividad
-│   ├── GoalDragCard.tsx         # Overlay de actividad durante arrastre
-│   ├── GoalModal.tsx            # Modal para crear/editar actividades
+│   ├── MonthlyBoard.tsx         # Vista de proyectos
+│   ├── GoalCard.tsx             # Tarjeta de proyecto
+│   ├── GoalDragCard.tsx         # Overlay de proyecto durante arrastre
+│   ├── GoalModal.tsx            # Modal para crear/editar proyectos
 │   ├── Header.tsx               # Cabecera — navegación, tema y cierre de sesión
 │   ├── Login.tsx                # Pantalla de login y registro
-│   └── ActivityCelebration.tsx  # Animación de celebración al completar actividad
+│   └── ActivityCelebration.tsx  # Animación de celebración al completar proyecto
 │
 ├── store/
 │   └── kanbanStore.ts           # Store Zustand — estado + sincronización con Supabase
@@ -68,13 +68,13 @@ src/
 
 ## Modelo de datos (Supabase)
 
-### Tabla `activities`
+### Tabla `activities` (proyectos)
 
 | Columna | Tipo | Descripción |
 |---|---|---|
 | `id` | uuid (PK) | Identificador único |
 | `user_id` | uuid (FK → auth.users) | Dueño del registro |
-| `title` | text | Nombre de la actividad |
+| `title` | text | Nombre del proyecto |
 | `description` | text | Descripción opcional |
 | `due_date` | text | Fecha límite (YYYY-MM-DD) |
 | `completed_at` | text | Fecha/hora de finalización |
@@ -88,7 +88,7 @@ src/
 |---|---|---|
 | `id` | uuid (PK) | Identificador único |
 | `user_id` | uuid (FK → auth.users) | Dueño del registro |
-| `activity_id` | uuid (FK → activities) | Actividad a la que pertenece |
+| `activity_id` | uuid (FK → activities, nullable) | Proyecto al que pertenece (opcional) |
 | `title` | text | Nombre de la tarea |
 | `description` | text | Descripción opcional |
 | `priority` | text | `low`, `medium`, `high` |
@@ -151,7 +151,7 @@ create table public.activities (
 create table public.tasks (
   id           uuid primary key,
   user_id      uuid references auth.users(id) on delete cascade not null,
-  activity_id  uuid references public.activities(id) on delete cascade not null,
+  activity_id  uuid references public.activities(id) on delete set null,
   title        text not null,
   description  text,
   priority     text not null check (priority in ('low', 'medium', 'high')),
@@ -176,6 +176,15 @@ create policy "propietario_tasks"
   using      (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 ```
+
+> **Nota:** Si ya tienes la tabla `tasks` creada con `activity_id NOT NULL`, ejecuta esta migración para hacerlo opcional:
+> ```sql
+> alter table public.tasks alter column activity_id drop not null;
+> alter table public.tasks
+>   drop constraint if exists tasks_activity_id_fkey,
+>   add constraint tasks_activity_id_fkey
+>     foreign key (activity_id) references public.activities(id) on delete set null;
+> ```
 
 ### 5 — Configurar la URL de redirección en Supabase
 

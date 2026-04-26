@@ -143,9 +143,9 @@ export default function App() {
           onSignOut={() => supabase.auth.signOut()}
         />
         <main className="flex-1 flex flex-col min-h-0 pt-6">
-          {activeView === 'tasks'
-            ? <Board onActivityCompleted={enqueueActivityCelebration} />
-            : <ActivitiesBoard />}
+          {activeView === 'projects'
+            ? <ActivitiesBoard />
+            : <Board onActivityCompleted={enqueueActivityCelebration} />}
         </main>
       </div>
     </div>

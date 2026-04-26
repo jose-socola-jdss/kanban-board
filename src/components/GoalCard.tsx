@@ -172,7 +172,7 @@ export function ActivityCard({ activity, column, tasks, onEdit }: ActivityCardPr
       {confirmDelete && (
         <div className="absolute inset-0 rounded-xl bg-surface-3/95 backdrop-blur-sm flex flex-col items-center justify-center gap-3 z-10 border border-rose-400/30 animate-scale-in">
           <p className="text-xs text-text-secondary font-body text-center px-4">
-            ¿Eliminar esta actividad y sus tareas?
+            ¿Eliminar este proyecto y sus tareas?
           </p>
           <div className="flex gap-2">
             <button

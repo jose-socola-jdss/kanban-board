@@ -1,6 +1,6 @@
 export type Priority = 'low' | 'medium' | 'high'
 export type ColumnId = 'pending' | 'thisWeek' | 'completed'
-export type ViewMode = 'tasks' | 'activities'
+export type ViewMode = 'tasks' | 'projects'
 
 export interface Activity {
   id: string
@@ -21,7 +21,7 @@ export interface Task {
   dueDate?: string
   completedAt?: string
   column: ColumnId
-  activityId: string
+  activityId?: string
   tags?: string[]
 }
 

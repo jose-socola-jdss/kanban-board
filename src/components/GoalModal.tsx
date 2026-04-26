@@ -139,7 +139,7 @@ export function ActivityModal({ activity, defaultColumn = 'pending', onClose }: 
     // ── Create mode ────────────────────────────────────────────
     const validRows = taskRows.filter((r) => r.title.trim())
     if (validRows.length === 0) {
-      setTasksError('Agrega al menos una tarea para esta actividad')
+      setTasksError('Agrega al menos una tarea para este proyecto')
       return
     }
 
@@ -179,7 +179,7 @@ export function ActivityModal({ activity, defaultColumn = 'pending', onClose }: 
               <Target size={13} className="text-text-secondary" />
             </div>
             <h2 className="font-display text-base font-600 text-text-primary">
-              {activity ? 'Editar actividad' : 'Nueva actividad'}
+              {activity ? 'Editar proyecto' : 'Nuevo proyecto'}
             </h2>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-3 transition-all">
@@ -201,7 +201,7 @@ export function ActivityModal({ activity, defaultColumn = 'pending', onClose }: 
                 type="text"
                 value={title}
                 onChange={(e) => { setTitle(e.target.value); setTitleError('') }}
-                placeholder="¿Cuál es la actividad del mes?"
+                placeholder="¿Cuál es el proyecto?"
                 className="form-input w-full px-3.5 py-2.5 rounded-xl text-sm font-body"
                 maxLength={120}
               />
@@ -216,7 +216,7 @@ export function ActivityModal({ activity, defaultColumn = 'pending', onClose }: 
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="¿En qué consiste esta actividad?"
+                placeholder="¿En qué consiste este proyecto?"
                 rows={2}
                 className="form-input w-full px-3.5 py-2.5 rounded-xl text-sm font-body resize-none"
                 maxLength={400}
@@ -242,13 +242,13 @@ export function ActivityModal({ activity, defaultColumn = 'pending', onClose }: 
               <div className="flex items-center justify-between mb-3 mt-4">
                 <div>
                   <p className="text-xs font-body font-500 text-text-secondary">
-                    Tareas de la actividad
+                    Tareas del proyecto
                     {!activity && <span className="text-rose-400"> *</span>}
                   </p>
                   <p className="text-[10px] font-body text-text-muted mt-0.5">
                     {activity
-                      ? 'Edita, elimina o añade tareas para esta actividad'
-                      : 'Define las tareas que debes completar para esta actividad'}
+                      ? 'Edita, elimina o añade tareas para este proyecto'
+                      : 'Define las tareas que debes completar para este proyecto'}
                   </p>
                 </div>
               </div>
@@ -313,7 +313,7 @@ export function ActivityModal({ activity, defaultColumn = 'pending', onClose }: 
             Cancelar
           </button>
           <button type="submit" form="activity-form" className="flex-1 px-4 py-2.5 rounded-xl text-sm font-body font-500 text-white bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-400 hover:to-purple-400 transition-all shadow-lg shadow-violet-500/20">
-            {activity ? 'Guardar cambios' : 'Crear actividad'}
+            {activity ? 'Guardar cambios' : 'Crear proyecto'}
           </button>
         </div>
       </div>

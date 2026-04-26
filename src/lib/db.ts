@@ -18,7 +18,7 @@ interface ActivityRow {
 interface TaskRow {
   id: string
   user_id: string
-  activity_id: string
+  activity_id: string | null
   title: string
   description: string | null
   priority: 'low' | 'medium' | 'high'
@@ -47,7 +47,7 @@ function toActivity(r: ActivityRow): Activity {
 function toTask(r: TaskRow): Task {
   return {
     id: r.id,
-    activityId: r.activity_id,
+    activityId: r.activity_id ?? undefined,
     title: r.title,
     description: r.description ?? undefined,
     priority: r.priority,
@@ -77,7 +77,7 @@ function fromTask(t: Task, userId: string, position: number) {
   return {
     id: t.id,
     user_id: userId,
-    activity_id: t.activityId,
+    activity_id: t.activityId ?? null,
     title: t.title,
     description: t.description ?? null,
     priority: t.priority,
@@ -179,7 +179,7 @@ export const db = {
 
   async updateTask(
     id: string,
-    updates: Partial<Pick<Task, 'title' | 'description' | 'priority' | 'dueDate' | 'completedAt' | 'column' | 'tags'>>,
+    updates: Partial<Pick<Task, 'title' | 'description' | 'priority' | 'dueDate' | 'completedAt' | 'column' | 'tags' | 'activityId'>>,
     userId: string,
   ): Promise<void> {
     const patch: Record<string, unknown> = {}
@@ -190,6 +190,7 @@ export const db = {
     if (updates.completedAt !== undefined) patch.completed_at = updates.completedAt ?? null
     if (updates.column      !== undefined) patch.status       = updates.column
     if (updates.tags        !== undefined) patch.tags         = updates.tags ?? null
+    if ('activityId' in updates)          patch.activity_id  = updates.activityId ?? null
     const { error } = await supabase
       .from('tasks')
       .update(patch)

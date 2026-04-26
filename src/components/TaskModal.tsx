@@ -52,15 +52,6 @@ export function TaskModal({ task, defaultColumn = 'pending', activityId: presetA
       return
     }
 
-    if (!task && !selectedActivityId) {
-      setActivityError('Selecciona una actividad para esta tarea')
-      return
-    }
-    if (task && !selectedActivityId && !task.activityId) {
-      setActivityError('Selecciona una actividad para esta tarea')
-      return
-    }
-
     if (task) {
       updateTask(task.id, {
         title: title.trim(),
@@ -68,7 +59,7 @@ export function TaskModal({ task, defaultColumn = 'pending', activityId: presetA
         priority,
         dueDate: dueDate || undefined,
         column,
-        activityId: selectedActivityId || task.activityId,
+        activityId: selectedActivityId || undefined,
       })
     } else {
       addTask({
@@ -77,7 +68,7 @@ export function TaskModal({ task, defaultColumn = 'pending', activityId: presetA
         priority,
         dueDate: dueDate || undefined,
         column,
-        activityId: selectedActivityId,
+        activityId: selectedActivityId || undefined,
       })
     }
     onClose()
@@ -116,7 +107,7 @@ export function TaskModal({ task, defaultColumn = 'pending', activityId: presetA
           {showActivitySelector && (
             <div>
               <label className="block text-xs font-body font-500 text-text-secondary mb-1.5">
-                Actividad <span className="text-rose-400">*</span>
+                Proyecto <span className="text-text-muted">(opcional)</span>
               </label>
               {activeActivities.length > 0 ? (
                 <select
@@ -124,7 +115,7 @@ export function TaskModal({ task, defaultColumn = 'pending', activityId: presetA
                   onChange={(e) => { setSelectedActivityId(e.target.value); setActivityError('') }}
                   className="form-input w-full px-3 py-2.5 rounded-xl text-sm font-body cursor-pointer"
                 >
-                  <option value="">Selecciona una actividad...</option>
+                  <option value="">Sin proyecto</option>
                   {activeActivities.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.title}
@@ -133,7 +124,7 @@ export function TaskModal({ task, defaultColumn = 'pending', activityId: presetA
                 </select>
               ) : (
                 <p className="text-xs text-text-muted bg-surface-3 rounded-xl px-3.5 py-2.5 border border-border">
-                  No hay actividades activas. Crea una actividad en la vista de actividades primero.
+                  No hay proyectos activos. Crea un proyecto en la vista de proyectos primero.
                 </p>
               )}
               {activityError && <p className="text-xs text-rose-400 mt-1.5">{activityError}</p>}

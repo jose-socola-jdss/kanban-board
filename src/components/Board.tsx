@@ -117,9 +117,11 @@ export function Board({ onActivityCompleted }: BoardProps) {
     if (currentTask.column === 'completed') {
       triggerCelebration(activeId)
 
-      const activityTasks = freshTasks.filter((task) => task.activityId === currentTask.activityId)
+      const activityTasks = currentTask.activityId
+        ? freshTasks.filter((task) => task.activityId === currentTask.activityId)
+        : []
       const isActivityCompleted = activityTasks.length > 0 && activityTasks.every((task) => task.column === 'completed')
-      const activity = activities.find((item) => item.id === currentTask.activityId)
+      const activity = currentTask.activityId ? activities.find((item) => item.id === currentTask.activityId) : undefined
 
       if (isActivityCompleted && activity && onActivityCompleted) {
         const existing = activityCelebrateTimers.current.get(activity.id)

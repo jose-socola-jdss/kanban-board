@@ -9,7 +9,7 @@ interface TaskInput {
   priority: Priority
   dueDate?: string
   column: ColumnId
-  activityId: string
+  activityId?: string
 }
 
 interface ActivityInput {
@@ -158,7 +158,7 @@ export const useKanbanStore = create<KanbanStore>()((set, get) => ({
       const newTasks = state.tasks.map((t) => (t.id === id ? { ...t, ...enriched } : t))
       if (!updates.column) return { tasks: newTasks }
       const updated = newTasks.find((t) => t.id === id)
-      if (!updated) return { tasks: newTasks }
+      if (!updated || !updated.activityId) return { tasks: newTasks }
       const activityTasks = newTasks.filter((t) => t.activityId === updated.activityId)
       const allDone = activityTasks.length > 0 && activityTasks.every((t) => t.column === 'completed')
       const activity = state.activities.find((a) => a.id === updated.activityId)
@@ -195,7 +195,7 @@ export const useKanbanStore = create<KanbanStore>()((set, get) => ({
         t.id === id ? { ...t, column, completedAt } : t,
       )
       const moved = newTasks.find((t) => t.id === id)
-      if (!moved) return { tasks: newTasks }
+      if (!moved || !moved.activityId) return { tasks: newTasks }
       const activityTasks = newTasks.filter((t) => t.activityId === moved.activityId)
       const allDone = activityTasks.length > 0 && activityTasks.every((t) => t.column === 'completed')
       const activity = state.activities.find((a) => a.id === moved.activityId)

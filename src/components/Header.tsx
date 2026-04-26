@@ -50,14 +50,14 @@ export function Header({ isDark, onToggleTheme, onSignOut }: HeaderProps) {
               Tareas
             </button>
             <button
-              onClick={() => setActiveView('activities')}
+              onClick={() => setActiveView('projects')}
               className={`px-3 py-1.5 rounded-lg text-xs font-body font-500 transition-all duration-150 ${
-                activeView === 'activities'
+                activeView === 'projects'
                   ? 'bg-surface-0 text-text-primary shadow-sm border border-border'
                   : 'text-text-muted hover:text-text-secondary'
               }`}
             >
-              Actividades
+              Proyectos
             </button>
           </div>
 
