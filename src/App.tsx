@@ -147,14 +147,7 @@ export default function App() {
 
       {/* Main content */}
       <div className={`relative z-10 flex flex-col min-h-screen transition-all duration-300 ${mainPadding}`}>
-        {/* Board header (Tareas / Proyectos toggle, theme, logout) */}
-        {isBoardView && (
-          <Header
-            isDark={isDark}
-            onToggleTheme={toggle}
-            onSignOut={() => supabase.auth.signOut()}
-          />
-        )}
+        {isBoardView && <Header />}
 
         <main className="flex-1 flex flex-col min-h-0">
           {activeView === 'projects' && <ActivitiesBoard />}

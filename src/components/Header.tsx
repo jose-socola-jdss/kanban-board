@@ -1,13 +1,7 @@
-import { LayoutGrid, Sun, Moon, LogOut } from 'lucide-react'
+import { LayoutGrid } from 'lucide-react'
 import { useKanbanStore } from '../store/kanbanStore'
 
-interface HeaderProps {
-  isDark: boolean
-  onToggleTheme: () => void
-  onSignOut: () => void
-}
-
-export function Header({ isDark, onToggleTheme, onSignOut }: HeaderProps) {
+export function Header() {
   const { activeView, setActiveView } = useKanbanStore()
 
   const today = new Date()
@@ -36,58 +30,30 @@ export function Header({ isDark, onToggleTheme, onSignOut }: HeaderProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* View switcher */}
-          <div className="flex items-center gap-1 p-1 rounded-xl bg-surface-3 border border-border">
-            <button
-              onClick={() => setActiveView('tasks')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-body font-500 transition-all duration-150 ${
-                activeView === 'tasks'
-                  ? 'bg-surface-0 text-text-primary shadow-sm border border-border'
-                  : 'text-text-muted hover:text-text-secondary'
-              }`}
-            >
-              Tareas
-            </button>
-            <button
-              onClick={() => setActiveView('projects')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-body font-500 transition-all duration-150 ${
-                activeView === 'projects'
-                  ? 'bg-surface-0 text-text-primary shadow-sm border border-border'
-                  : 'text-text-muted hover:text-text-secondary'
-              }`}
-            >
-              Proyectos
-            </button>
-          </div>
-
-          {/* Theme toggle */}
+        {/* View switcher — only control remaining in header */}
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-surface-3 border border-border">
           <button
-            onClick={onToggleTheme}
-            className="theme-toggle"
-            title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-            aria-label={isDark ? 'Activar modo claro' : 'Activar modo oscuro'}
+            onClick={() => setActiveView('tasks')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-body font-500 transition-all duration-150 ${
+              activeView === 'tasks'
+                ? 'bg-surface-0 text-text-primary shadow-sm border border-border'
+                : 'text-text-muted hover:text-text-secondary'
+            }`}
           >
-            <div className="theme-toggle-knob">
-              {isDark
-                ? <Moon className="theme-toggle-icon" />
-                : <Sun className="theme-toggle-icon text-text-secondary" />
-              }
-            </div>
+            Tareas
           </button>
-
-          {/* Sign out */}
           <button
-            onClick={onSignOut}
-            title="Cerrar sesión"
-            aria-label="Cerrar sesión"
-            className="flex items-center justify-center w-9 h-9 rounded-xl bg-surface-3 border border-border text-text-muted hover:text-text-secondary hover:border-border-hover transition-all duration-150"
+            onClick={() => setActiveView('projects')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-body font-500 transition-all duration-150 ${
+              activeView === 'projects'
+                ? 'bg-surface-0 text-text-primary shadow-sm border border-border'
+                : 'text-text-muted hover:text-text-secondary'
+            }`}
           >
-            <LogOut size={15} />
+            Proyectos
           </button>
         </div>
       </div>
-
     </header>
   )
 }

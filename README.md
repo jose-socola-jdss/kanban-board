@@ -29,7 +29,7 @@ Plataforma de productividad personal para gestión de proyectos y tareas con tab
 - Tres columnas: **Pendientes**, **Para hoy** y **Finalizadas**
 - Drag & drop entre columnas y para reordenar tarjetas
 - Tarjetas independientes o asociadas a un proyecto
-- Switch rápido entre vista de Tareas y Proyectos en la cabecera
+- Switch rápido entre vista de **Tareas** y **Proyectos** en la cabecera
 
 ### 📁 Proyectos
 - Cada proyecto agrupa múltiples tareas con barra de progreso
@@ -40,43 +40,46 @@ Plataforma de productividad personal para gestión de proyectos y tareas con tab
 - Banner en la parte superior del tablero que indica qué tarea está en curso
 - Temporizador en tiempo real (cuenta regresiva hasta la hora de fin programada)
 - Acciones rápidas: **Finalizar** tarea o enviarla **A la cola**
-- El estado de la tarea activa se sincroniza con Supabase mediante etiquetas internas, lo que permite ver la tarea en progreso desde cualquier navegador o dispositivo
+- El estado se sincroniza con Supabase para mantenerse en cualquier navegador o dispositivo
 
 ### 🕐 Programación de tareas ("Para hoy")
-- Selectores de **hora de inicio y fin** directamente en la tarjeta, sin abrir el modal
-- Creación de tareas desde la columna "Para hoy" con fecha fijada al día actual
+- Selectores de **hora de inicio y fin** directamente en la tarjeta
 - La tarea activa se resalta visualmente con borde teal y etiqueta "EN CURSO"
 
-### 📅 Calendario
+### 📅 Calendario interactivo
 - Vista mensual con chips de tareas por día de entrega, coloreados por prioridad
+- **Hover en cada día**: aparecen botones rápidos para **Crear tarea** (ícono `+`) y **Crear proyecto** (ícono carpeta), sin necesidad de hacer clic primero
+- **Chips clickeables**: hacer clic en cualquier tarea del calendario abre el modal de edición directamente
 - Indicador rojo en días con tareas vencidas
-- Panel de detalle al hacer clic en un día con botones para **Crear nueva tarea** o **Crear nuevo proyecto** con la fecha seleccionada
+- Panel de detalle al hacer clic en un día, con acceso a editar cada tarea desde ahí
 
 ### 📋 Vista General
 - Lista unificada de todas las tareas y proyectos con **edición directa** al hacer clic en cualquier fila
-- **Acciones rápidas**: Botón de eliminar (papelera) visible al hacer hover en cada tarea
-- **Acciones en masa**: Selección múltiple de tareas para mover de columna o eliminar en lote
-- **Búsqueda** por nombre de tarea
-- **Filtros**: por estado, prioridad y proyecto
-- **Agrupación y Ordenamiento** avanzado
+- **Eliminar al hacer hover**: ícono de papelera visible al pasar el cursor
+- **Acciones en masa**: selección múltiple para mover de columna o eliminar tareas en lote
+- **Búsqueda**, **filtros**, **agrupación** y **ordenamiento** avanzados
 
 ### 📊 Estadísticas
-- **8 KPIs**: tareas completadas, racha actual de días, completadas esta semana, promedio diario, etc.
-- **Insights automáticos** con mensajes motivacionales basados en tu actividad real
-- **Gráficas detalladas**: actividad semanal, tendencia mensual y distribución por prioridad/estado
+- **8 KPIs**: tareas completadas, racha de días, comparativa semanal, promedio diario, tareas vencidas, etc.
+- **Insights automáticos** con mensajes motivacionales según tu actividad real
+- **Gráficas**: actividad diaria, tendencia semanal y distribución por prioridad/estado
 
-### 🧭 Barra lateral de navegación (Colapsable)
-- Sidebar colapsable para maximizar el espacio de trabajo
-- Unificación de controles: **Modo claro/oscuro** y **Cerrar sesión** integrados en la barra lateral para acceso constante
+### 🧭 Barra lateral colapsable
+- Sidebar fijo a la izquierda con íconos y tooltips para las cuatro vistas
+- **Botón de colapsar/expandir** para maximizar el espacio de trabajo
+- Controles unificados en la sidebar: **Modo claro/oscuro** (Sol/Luna) y **Cerrar sesión** (LogOut)
 - Acceso a: **Mi Tablero · Vista General · Calendario · Estadísticas**
 
 ### 🌙 Tema claro / oscuro
-- Persiste entre sesiones
-- Diseño minimalista con efectos de glassmorphism y gradientes suaves
+- Controlado desde la barra lateral — persiste entre sesiones
+- Modo oscuro con fondo negro puro y gradientes sutiles; modo claro con fondo azul-gris suave
 
 ### 🔁 Tareas recurrentes
 - Tipos: **diaria**, **semanal** y **mensual**
 - Se reestablecen automáticamente al día siguiente de haberse completado
+
+### ⚡ Actualizaciones optimistas
+- El estado local se actualiza inmediatamente y la operación se envía a Supabase en segundo plano
 
 ---
 
@@ -90,22 +93,25 @@ src/
 │
 ├── components/
 │   ├── Board.tsx                # Tablero kanban con lógica de arrastre
-│   ├── Sidebar.tsx              # Barra lateral colapsable con navegación y controles
+│   ├── Sidebar.tsx              # Barra lateral colapsable (nav + tema + logout)
+│   ├── Header.tsx               # Cabecera del tablero (solo switch Tareas/Proyectos)
 │   ├── TaskCard.tsx             # Tarjeta de tarea con selectores de hora
 │   ├── TaskModal.tsx            # Modal de edición de tareas
-│   ├── Header.tsx               # Cabecera del tablero
-│   └── ...                      # Otros componentes UI (Celebraciones, Modales de Proyecto, etc.)
+│   ├── GoalModal.tsx            # Modal de edición de proyectos
+│   ├── InProgressBanner.tsx     # Banner "En Progreso" con temporizador
+│   ├── Login.tsx                # Pantalla de login y registro
+│   └── ActivityCelebration.tsx  # Animación al completar un proyecto
 │
 ├── pages/
-│   ├── OverviewPage.tsx         # Vista General con acciones en masa y filtros
-│   ├── CalendarPage.tsx         # Vista Calendario interactiva
+│   ├── OverviewPage.tsx         # Vista General con selección en masa y edición directa
+│   ├── CalendarPage.tsx         # Calendario con hover, chips clickeables y edición inline
 │   └── StatsPage.tsx            # Dashboard de estadísticas e insights
 │
 ├── store/
 │   └── kanbanStore.ts           # Estado global y sincronización con Supabase
 │
 └── lib/
-    ├── db.ts                    # Operaciones CRUD en base de datos
+    ├── db.ts                    # Operaciones CRUD
     └── supabase.ts              # Configuración del cliente Supabase
 ```
 
@@ -120,7 +126,8 @@ src/
 | `id` | uuid (PK) | Identificador único |
 | `user_id` | uuid (FK) | Dueño del registro |
 | `title` | text | Nombre del proyecto |
-| `status` | text | Columna: `pending`, `thisWeek`, `completed` |
+| `status` | text | `pending`, `thisWeek`, `completed` |
+| `position` | integer | Orden dentro de la columna |
 
 ### Tabla `tasks`
 
@@ -129,19 +136,29 @@ src/
 | `id` | uuid (PK) | Identificador único |
 | `user_id` | uuid (FK) | Dueño del registro |
 | `title` | text | Nombre de la tarea |
-| `status` | text | Columna: `pending`, `thisWeek`, `completed` |
-| `tags` | text[] | Incluye la sincronización del estado activo (`__ACTIVE_TASK:<timestamp>__`) |
-| `scheduled_start` | text | Hora de inicio programada |
-| `scheduled_end` | text | Hora de fin programada |
+| `priority` | text | `low`, `medium`, `high` |
+| `status` | text | `pending`, `thisWeek`, `completed` |
+| `tags` | text[] | Incluye estado activo interno (`__ACTIVE_TASK:<ts>__`) |
+| `scheduled_start` / `scheduled_end` | text | Hora de inicio y fin programada |
+| `scheduling_type` | text | `none`, `fixed`, `recurring` |
 
 ---
 
 ## Configuración local
 
-1. **Instalar dependencias**: `npm install`
-2. **Configurar .env.local**: Añadir `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`
-3. **Base de datos**: Ejecutar el esquema SQL proporcionado en el SQL Editor de Supabase
-4. **Ejecutar**: `npm run dev`
+1. **Instalar**: `npm install`
+2. **Crear `.env.local`** con `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`
+3. **Base de datos**: Ejecutar el esquema SQL en Supabase SQL Editor
+4. **Ejecutar**: `npm run dev` → abre `http://localhost:5173`
+
+---
+
+## Despliegue en Vercel
+
+1. Importar el repositorio desde GitHub
+2. Framework preset: **Vite** (auto-detectado)
+3. Añadir variables `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en Settings
+4. Cada push a `main` despliega automáticamente
 
 ---
 
