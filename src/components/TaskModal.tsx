@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, Sparkles } from 'lucide-react'
+import { X, Sparkles, Target } from 'lucide-react'
 import type { Task, ColumnId, Priority } from '../types'
 import { COLUMNS, PRIORITY_CONFIG } from '../types'
 import { useKanbanStore } from '../store/kanbanStore'
@@ -7,28 +7,23 @@ import { useKanbanStore } from '../store/kanbanStore'
 interface TaskModalProps {
   task?: Task | null
   defaultColumn?: ColumnId
-  activityId?: string
   onClose: () => void
 }
 
-export function TaskModal({ task, defaultColumn = 'pending', activityId: presetActivityId, onClose }: TaskModalProps) {
+export function TaskModal({ task, defaultColumn = 'pending', onClose }: TaskModalProps) {
   const addTask = useKanbanStore((s) => s.addTask)
   const updateTask = useKanbanStore((s) => s.updateTask)
   const activities = useKanbanStore((s) => s.activities)
 
-  // When editing show all activities; when creating only show active (non-completed) ones
-  const activeActivities = task ? activities : activities.filter((a) => a.column !== 'completed')
+  // Only used when editing to display the project name (read-only)
+  const taskProject = task?.activityId ? activities.find((a) => a.id === task.activityId) : null
 
   const [title, setTitle] = useState(task?.title ?? '')
   const [description, setDescription] = useState(task?.description ?? '')
   const [priority, setPriority] = useState<Priority>(task?.priority ?? 'medium')
   const [dueDate, setDueDate] = useState(task?.dueDate ?? '')
   const [column, setColumn] = useState<ColumnId>(task?.column ?? defaultColumn)
-  const [selectedActivityId, setSelectedActivityId] = useState<string>(
-    task?.activityId ?? presetActivityId ?? activeActivities[0]?.id ?? ''
-  )
   const [error, setError] = useState('')
-  const [activityError, setActivityError] = useState('')
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -59,7 +54,6 @@ export function TaskModal({ task, defaultColumn = 'pending', activityId: presetA
         priority,
         dueDate: dueDate || undefined,
         column,
-        activityId: selectedActivityId || undefined,
       })
     } else {
       addTask({
@@ -68,14 +62,10 @@ export function TaskModal({ task, defaultColumn = 'pending', activityId: presetA
         priority,
         dueDate: dueDate || undefined,
         column,
-        activityId: selectedActivityId || undefined,
       })
     }
     onClose()
   }
-
-  // Show activity selector when creating (no preset) OR when editing (to allow reassigning)
-  const showActivitySelector = !presetActivityId
 
   return (
     <div
@@ -103,31 +93,12 @@ export function TaskModal({ task, defaultColumn = 'pending', activityId: presetA
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {/* Activity selector — only when creating without preset activity */}
-          {showActivitySelector && (
-            <div>
-              <label className="block text-xs font-body font-500 text-text-secondary mb-1.5">
-                Proyecto <span className="text-text-muted">(opcional)</span>
-              </label>
-              {activeActivities.length > 0 ? (
-                <select
-                  value={selectedActivityId}
-                  onChange={(e) => { setSelectedActivityId(e.target.value); setActivityError('') }}
-                  className="form-input w-full px-3 py-2.5 rounded-xl text-sm font-body cursor-pointer"
-                >
-                  <option value="">Sin proyecto</option>
-                  {activeActivities.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.title}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <p className="text-xs text-text-muted bg-surface-3 rounded-xl px-3.5 py-2.5 border border-border">
-                  No hay proyectos activos. Crea un proyecto en la vista de proyectos primero.
-                </p>
-              )}
-              {activityError && <p className="text-xs text-rose-400 mt-1.5">{activityError}</p>}
+          {/* Project badge — read-only, only shown when editing a task that belongs to a project */}
+          {task && taskProject && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-3 border border-border">
+              <Target size={12} className="text-text-muted flex-shrink-0" />
+              <span className="text-xs font-body text-text-muted">Proyecto:</span>
+              <span className="text-xs font-body font-500 text-text-secondary truncate">{taskProject.title}</span>
             </div>
           )}
 
