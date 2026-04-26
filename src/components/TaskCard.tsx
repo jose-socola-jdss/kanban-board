@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Pencil, Trash2, GripVertical, CalendarDays, Check, Target } from 'lucide-react'
+import { Pencil, Trash2, GripVertical, CalendarDays, Check, Target, Clock } from 'lucide-react'
 import type { Task, ColumnConfig } from '../types'
 import { PRIORITY_CONFIG } from '../types'
 import { useKanbanStore } from '../store/kanbanStore'
@@ -12,6 +12,7 @@ interface TaskCardProps {
   column: ColumnConfig
   onEdit: (task: Task) => void
   isCelebrating?: boolean
+  isParaHoy?: boolean
 }
 
 const PRIORITY_HOVER_STYLES = {
@@ -20,7 +21,7 @@ const PRIORITY_HOVER_STYLES = {
   high: 'group-hover:bg-rose-400/10 group-hover:text-rose-400 group-hover:border-rose-400/20',
 } as const
 
-export function TaskCard({ task, column, onEdit, isCelebrating = false }: TaskCardProps) {
+export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHoy = false }: TaskCardProps) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const deleteTask = useKanbanStore((s) => s.deleteTask)
   const activities = useKanbanStore((s) => s.activities)
@@ -194,6 +195,24 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false }: TaskCa
               <span className="opacity-70">Fecha de finalización: </span>
               <span className="font-500">{dueDateLabel.formatted}</span>
               <span className={`ml-1 ${dueDateLabel.overdue ? '' : 'opacity-60'}`}>({dueDateLabel.countdown})</span>
+            </span>
+          </div>
+        )}
+
+        {/* Scheduled start/end times (Para hoy column) */}
+        {isParaHoy && (task.scheduledStart || task.scheduledEnd) && (
+          <div className="ml-5 flex items-center gap-1 mt-1">
+            <Clock size={10} className="flex-shrink-0 text-text-muted opacity-60" />
+            <span className="text-[10px] font-body text-text-muted">
+              {task.scheduledStart && (
+                <span className="font-500">{task.scheduledStart}</span>
+              )}
+              {task.scheduledStart && task.scheduledEnd && (
+                <span className="opacity-60 mx-0.5">→</span>
+              )}
+              {task.scheduledEnd && (
+                <span className="font-500">{task.scheduledEnd}</span>
+              )}
             </span>
           </div>
         )}

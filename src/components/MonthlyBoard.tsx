@@ -6,6 +6,7 @@ import { COLUMNS } from '../types'
 import { useKanbanStore } from '../store/kanbanStore'
 import { ActivityCard } from './GoalCard'
 import { ActivityModal } from './GoalModal'
+import { InProgressBanner } from './InProgressBanner'
 
 const COLUMN_ICONS = {
   pending: Circle,
@@ -34,6 +35,8 @@ export function ActivitiesBoard() {
   })
 
   return (
+    <>
+    <InProgressBanner mode="projects" />
     <div className="flex gap-4 md:gap-5 px-6 md:px-10 pb-8 flex-1 min-h-0 max-w-[1400px] mx-auto w-full">
       {COLUMNS.map((col, i) => {
         const colActivities = visibleActivities.filter(
@@ -50,6 +53,7 @@ export function ActivitiesBoard() {
         )
       })}
     </div>
+    </>
   )
 }
 

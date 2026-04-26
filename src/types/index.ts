@@ -30,6 +30,8 @@ export interface Task {
   recurringWeekDay?: number    // 0-6 (JS: 0=Dom, 1=Lun, ..., 6=Sáb)
   recurringMonthDay?: number   // 1-31
   recurringEndDate?: string    // YYYY-MM-DD
+  scheduledStart?: string      // HH:mm
+  scheduledEnd?: string        // HH:mm
 }
 
 export interface ColumnConfig {
@@ -58,14 +60,14 @@ export const COLUMNS: ColumnConfig[] = [
   },
   {
     id: 'thisWeek',
-    label: 'En progreso',
+    label: 'Para hoy',
     accentClass: 'bg-week',
     accentColor: '#5da8ff',
     dimClass: 'bg-week-dim',
     borderClass: 'border-week',
     glowClass: 'shadow-week-glow',
     textClass: 'text-week',
-    emptyMsg: 'Nada en progreso por ahora',
+    emptyMsg: 'Sin tareas para hoy',
   },
   {
     id: 'completed',

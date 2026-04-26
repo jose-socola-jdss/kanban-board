@@ -15,6 +15,8 @@ interface TaskInput {
   recurringWeekDay?: number
   recurringMonthDay?: number
   recurringEndDate?: string
+  scheduledStart?: string
+  scheduledEnd?: string
 }
 
 interface ActivityInput {
@@ -32,6 +34,8 @@ interface KanbanStore {
   selectedMonth: string
   userId: string | null
   isLoading: boolean
+  activeTaskId: string | null
+  activeTaskStartedAt: number | null
   loadUserData: (userId: string) => Promise<void>
   addActivity: (data: ActivityInput) => void
   updateActivity: (id: string, updates: Partial<Omit<Activity, 'id' | 'createdAt'>>) => void
@@ -46,6 +50,8 @@ interface KanbanStore {
   reorderTasks: (newTasks: Task[]) => void
   setActiveView: (view: ViewMode) => void
   setSelectedMonth: (monthKey: string) => void
+  startTask: (id: string) => void
+  stopTask: () => void
 }
 
 export const useKanbanStore = create<KanbanStore>()((set, get) => ({
@@ -55,8 +61,8 @@ export const useKanbanStore = create<KanbanStore>()((set, get) => ({
   selectedMonth: getCurrentMonthKey(),
   userId: null,
   isLoading: false,
-
-  // ── Carga inicial desde Supabase ───────────────────────────────────────────
+  activeTaskId: null,
+  activeTaskStartedAt: null,
 
   loadUserData: async (userId) => {
     set({ isLoading: true, userId })
@@ -82,14 +88,29 @@ export const useKanbanStore = create<KanbanStore>()((set, get) => ({
           db.updateTask(t.id, { column: 'pending' as ColumnId, completedAt: undefined }, userId).catch(console.error)
         ))
       }
+
+      // Auto-move tasks with dueDate === today from 'pending' to 'thisWeek'
+      const todayStr = new Date().toISOString().slice(0, 10)
+      const toMoveToday = tasks.filter((t) =>
+        t.column === 'pending' && t.dueDate === todayStr
+      )
+      if (toMoveToday.length > 0) {
+        tasks = tasks.map((t) =>
+          toMoveToday.some((r) => r.id === t.id)
+            ? { ...t, column: 'thisWeek' as ColumnId }
+            : t
+        )
+        await Promise.all(toMoveToday.map((t) =>
+          db.updateTask(t.id, { column: 'thisWeek' as ColumnId }, userId).catch(console.error)
+        ))
+      }
+
       set({ activities, tasks, isLoading: false })
     } catch (err) {
       console.error('Error cargando datos:', err)
       set({ isLoading: false })
     }
   },
-
-  // ── Actividades ────────────────────────────────────────────────────────────
 
   addActivity: (data) => {
     const { userId, activities } = get()
@@ -141,8 +162,6 @@ export const useKanbanStore = create<KanbanStore>()((set, get) => ({
     db.reorderActivities(newActivities, userId).catch(console.error)
   },
 
-  // ── Tareas ─────────────────────────────────────────────────────────────────
-
   addTask: (data) => {
     const { userId, tasks } = get()
     if (!userId) return
@@ -169,18 +188,26 @@ export const useKanbanStore = create<KanbanStore>()((set, get) => ({
   },
 
   updateTask: (id, updates) => {
-    const { userId } = get()
+    const { userId, activeTaskId } = get()
     if (!userId) return
     const now = new Date().toISOString()
     const enriched = updates.column !== undefined
       ? { ...updates, completedAt: updates.column === 'completed' ? now : undefined }
       : updates
 
+    // Clear active task if it's completed or moved away from thisWeek
+    const clearsActive = activeTaskId === id && updates.column !== undefined && updates.column !== 'thisWeek'
+
     set((state) => {
       const newTasks = state.tasks.map((t) => (t.id === id ? { ...t, ...enriched } : t))
-      if (!updates.column) return { tasks: newTasks }
+      const stateUpdate: Partial<KanbanStore> = { tasks: newTasks }
+      if (clearsActive) {
+        stateUpdate.activeTaskId = null
+        stateUpdate.activeTaskStartedAt = null
+      }
+      if (!updates.column) return stateUpdate
       const updated = newTasks.find((t) => t.id === id)
-      if (!updated || !updated.activityId) return { tasks: newTasks }
+      if (!updated || !updated.activityId) return stateUpdate
       const activityTasks = newTasks.filter((t) => t.activityId === updated.activityId)
       const allDone = activityTasks.length > 0 && activityTasks.every((t) => t.column === 'completed')
       const activity = state.activities.find((a) => a.id === updated.activityId)
@@ -188,49 +215,59 @@ export const useKanbanStore = create<KanbanStore>()((set, get) => ({
         const completedAt = now
         db.updateActivity(activity.id, { column: 'completed' as ColumnId, completedAt }, userId).catch(console.error)
         return {
-          tasks: newTasks,
+          ...stateUpdate,
           activities: state.activities.map((a) =>
             a.id === updated.activityId ? { ...a, column: 'completed' as ColumnId, completedAt } : a,
           ),
         }
       }
-      return { tasks: newTasks }
+      return stateUpdate
     })
     db.updateTask(id, enriched, userId).catch(console.error)
   },
 
   deleteTask: (id) => {
-    const { userId } = get()
+    const { userId, activeTaskId } = get()
     if (!userId) return
-    set((state) => ({ tasks: state.tasks.filter((t) => t.id !== id) }))
+    const clearsActive = activeTaskId === id
+    set((state) => ({
+      tasks: state.tasks.filter((t) => t.id !== id),
+      ...(clearsActive ? { activeTaskId: null, activeTaskStartedAt: null } : {}),
+    }))
     db.deleteTask(id, userId).catch(console.error)
   },
 
   moveTask: (id, column) => {
-    const { userId } = get()
+    const { userId, activeTaskId } = get()
     if (!userId) return
     const now = new Date().toISOString()
     const completedAt = column === 'completed' ? now : undefined
+    const clearsActive = activeTaskId === id && column !== 'thisWeek'
 
     set((state) => {
       const newTasks = state.tasks.map((t) =>
         t.id === id ? { ...t, column, completedAt } : t,
       )
+      const stateUpdate: Partial<KanbanStore> = { tasks: newTasks }
+      if (clearsActive) {
+        stateUpdate.activeTaskId = null
+        stateUpdate.activeTaskStartedAt = null
+      }
       const moved = newTasks.find((t) => t.id === id)
-      if (!moved || !moved.activityId) return { tasks: newTasks }
+      if (!moved || !moved.activityId) return stateUpdate
       const activityTasks = newTasks.filter((t) => t.activityId === moved.activityId)
       const allDone = activityTasks.length > 0 && activityTasks.every((t) => t.column === 'completed')
       const activity = state.activities.find((a) => a.id === moved.activityId)
       if (allDone && activity && activity.column !== 'completed') {
         db.updateActivity(activity.id, { column: 'completed' as ColumnId, completedAt: now }, userId).catch(console.error)
         return {
-          tasks: newTasks,
+          ...stateUpdate,
           activities: state.activities.map((a) =>
             a.id === moved.activityId ? { ...a, column: 'completed' as ColumnId, completedAt: now } : a,
           ),
         }
       }
-      return { tasks: newTasks }
+      return stateUpdate
     })
     db.updateTask(id, { column, completedAt }, userId).catch(console.error)
   },
@@ -244,4 +281,12 @@ export const useKanbanStore = create<KanbanStore>()((set, get) => ({
 
   setActiveView: (activeView) => set({ activeView }),
   setSelectedMonth: (selectedMonth) => set({ selectedMonth }),
+
+  startTask: (id) => {
+    set({ activeTaskId: id, activeTaskStartedAt: Date.now() })
+  },
+
+  stopTask: () => {
+    set({ activeTaskId: null, activeTaskStartedAt: null })
+  },
 }))

@@ -19,17 +19,25 @@ export function TaskModal({ task, defaultColumn = 'pending', onClose }: TaskModa
   // Only used when editing to display the project name (read-only)
   const taskProject = task?.activityId ? activities.find((a) => a.id === task.activityId) : null
 
+  const isParaHoyDefault = !task && defaultColumn === 'thisWeek'
+  const todayStr = new Date().toISOString().slice(0, 10)
+
   const [title, setTitle] = useState(task?.title ?? '')
   const [description, setDescription] = useState(task?.description ?? '')
   const [priority, setPriority] = useState<Priority>(task?.priority ?? 'medium')
   const [column, setColumn] = useState<ColumnId>(task?.column ?? defaultColumn)
   const [error, setError] = useState('')
 
-  // Scheduling state
-  const [schedulingType, setSchedulingType] = useState<SchedulingType>(
-    task?.schedulingType ?? (task?.dueDate ? 'fixed' : 'none')
-  )
-  const [dueDate, setDueDate] = useState(task?.schedulingType === 'fixed' ? (task?.dueDate ?? '') : (task?.dueDate ?? ''))
+  // Scheduling state — for new Para hoy tasks, default to fixed + today
+  const defaultSchedulingType: SchedulingType = isParaHoyDefault
+    ? 'fixed'
+    : (task?.schedulingType ?? (task?.dueDate ? 'fixed' : 'none'))
+  const defaultDueDate = isParaHoyDefault
+    ? todayStr
+    : (task?.dueDate ?? '')
+
+  const [schedulingType, setSchedulingType] = useState<SchedulingType>(defaultSchedulingType)
+  const [dueDate, setDueDate] = useState(defaultDueDate)
   const [recurringType, setRecurringType] = useState<RecurringType>(
     task?.recurringType ?? 'daily'
   )
@@ -37,6 +45,13 @@ export function TaskModal({ task, defaultColumn = 'pending', onClose }: TaskModa
   const [recurringMonthDay, setRecurringMonthDay] = useState<number | ''>(task?.recurringMonthDay ?? 15)
   const [recurringHasEndDate, setRecurringHasEndDate] = useState(!!task?.recurringEndDate)
   const [recurringEndDate, setRecurringEndDate] = useState(task?.recurringEndDate ?? '')
+
+  // Scheduled time fields (for thisWeek column)
+  const [scheduledStart, setScheduledStart] = useState(task?.scheduledStart ?? '')
+  const [scheduledEnd, setScheduledEnd] = useState(task?.scheduledEnd ?? '')
+
+  // Show time fields when column is thisWeek (for editing) or when defaultColumn is thisWeek
+  const showTimePickers = column === 'thisWeek'
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -62,6 +77,16 @@ export function TaskModal({ task, defaultColumn = 'pending', onClose }: TaskModa
 
     let taskData: Partial<Omit<Task, 'id' | 'createdAt'>> & { title: string; priority: Priority; column: ColumnId }
 
+    const timeFields = showTimePickers
+      ? {
+          scheduledStart: scheduledStart || undefined,
+          scheduledEnd: scheduledEnd || undefined,
+        }
+      : {
+          scheduledStart: undefined,
+          scheduledEnd: undefined,
+        }
+
     if (schedulingType === 'none') {
       taskData = {
         title: title.trim(),
@@ -74,6 +99,7 @@ export function TaskModal({ task, defaultColumn = 'pending', onClose }: TaskModa
         recurringWeekDay: undefined,
         recurringMonthDay: undefined,
         recurringEndDate: undefined,
+        ...timeFields,
       }
     } else if (schedulingType === 'fixed') {
       taskData = {
@@ -87,6 +113,7 @@ export function TaskModal({ task, defaultColumn = 'pending', onClose }: TaskModa
         recurringWeekDay: undefined,
         recurringMonthDay: undefined,
         recurringEndDate: undefined,
+        ...timeFields,
       }
     } else {
       // recurring
@@ -102,6 +129,7 @@ export function TaskModal({ task, defaultColumn = 'pending', onClose }: TaskModa
         recurringWeekDay: recurringType === 'weekly' ? recurringWeekDay : undefined,
         recurringMonthDay: recurringType === 'monthly' ? monthDay : undefined,
         recurringEndDate: recurringHasEndDate && recurringEndDate ? recurringEndDate : undefined,
+        ...timeFields,
       }
     }
 
@@ -229,6 +257,39 @@ export function TaskModal({ task, defaultColumn = 'pending', onClose }: TaskModa
               </select>
             </div>
           </div>
+
+          {/* Time pickers — only shown for Para hoy (thisWeek) column */}
+          {showTimePickers && (
+            <div>
+              <label className="block text-xs font-body font-500 text-text-secondary mb-2">
+                Horario <span className="text-text-muted">(opcional)</span>
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-body text-text-muted mb-1">
+                    Inicio (HH:mm)
+                  </label>
+                  <input
+                    type="time"
+                    value={scheduledStart}
+                    onChange={(e) => setScheduledStart(e.target.value)}
+                    className="form-input w-full px-3 py-2 rounded-xl text-sm font-body cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-body text-text-muted mb-1">
+                    Fin (HH:mm)
+                  </label>
+                  <input
+                    type="time"
+                    value={scheduledEnd}
+                    onChange={(e) => setScheduledEnd(e.target.value)}
+                    className="form-input w-full px-3 py-2 rounded-xl text-sm font-body cursor-pointer"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Programación */}
           <div>

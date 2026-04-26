@@ -1,8 +1,9 @@
 import { useState, type CSSProperties } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { Plus, CheckCircle2, Circle, Clock } from 'lucide-react'
+import { Plus, CheckCircle2, Circle, Clock, Play } from 'lucide-react'
 import type { Task, ColumnConfig } from '../types'
+import { useKanbanStore } from '../store/kanbanStore'
 import { TaskCard } from './TaskCard'
 import { TaskModal } from './TaskModal'
 
@@ -22,11 +23,15 @@ interface ColumnProps {
 export function Column({ column, tasks, enterIndex, celebratingIds }: ColumnProps) {
   const [showModal, setShowModal] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const startTask = useKanbanStore((s) => s.startTask)
+  const activeTaskId = useKanbanStore((s) => s.activeTaskId)
 
   const { setNodeRef, isOver } = useDroppable({ id: column.id })
 
   const Icon = COLUMN_ICONS[column.id]
-  const canAddTasks = column.id === 'pending'
+  const isParaHoy = column.id === 'thisWeek'
+  const canAddTasks = column.id === 'pending' || isParaHoy
+
   const panelStyle: CSSProperties = {
     ['--column-border' as string]: `${column.accentColor}26`,
     ['--column-border-hover' as string]: `${column.accentColor}50`,
@@ -34,6 +39,14 @@ export function Column({ column, tasks, enterIndex, celebratingIds }: ColumnProp
     ['--column-bg-hover' as string]: `linear-gradient(180deg, ${column.accentColor}12 0%, transparent 100%), rgb(var(--surface-2) / 0.84)`,
     ['--column-shadow' as string]: `0 10px 28px rgba(0,0,0,0.16), 0 0 0 1px ${column.accentColor}10`,
     ['--column-shadow-hover' as string]: `0 16px 40px rgba(0,0,0,0.22), 0 0 0 1px ${column.accentColor}24, 0 0 34px ${column.accentColor}10`,
+  }
+
+  const handlePlayClick = () => {
+    // Find first non-active task in Para hoy, or any first task
+    const firstTask = tasks.find((t) => t.id !== activeTaskId) ?? tasks[0]
+    if (firstTask) {
+      startTask(firstTask.id)
+    }
   }
 
   return (
@@ -84,31 +97,48 @@ export function Column({ column, tasks, enterIndex, celebratingIds }: ColumnProp
               </div>
             </div>
 
-            {/* Add task button */}
-            {canAddTasks ? (
-              <button
-                onClick={() => setShowModal(true)}
-                className={`
-                  p-1.5 rounded-lg border transition-all duration-150 group
-                  text-text-muted border-border
-                  hover:border-border-hover hover:text-text-primary
-                `}
-                title="Agregar tarea"
-                style={{
-                  ['--hover-bg' as string]: `${column.accentColor}15`,
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = `${column.accentColor}15`
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = 'transparent'
-                }}
-              >
-                <Plus size={14} />
-              </button>
-            ) : (
-              <div className="w-8 h-8" aria-hidden="true" />
-            )}
+            {/* Header buttons */}
+            <div className="flex items-center gap-1">
+              {/* Play button for Para hoy */}
+              {isParaHoy && tasks.length > 0 && (
+                <button
+                  onClick={handlePlayClick}
+                  className="p-1.5 rounded-lg border transition-all duration-150 text-text-muted border-border hover:border-border-hover hover:text-teal-400"
+                  title="Iniciar primera tarea"
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = `${column.accentColor}15`
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = 'transparent'
+                  }}
+                >
+                  <Play size={12} />
+                </button>
+              )}
+
+              {/* Add task button */}
+              {canAddTasks ? (
+                <button
+                  onClick={() => setShowModal(true)}
+                  className={`
+                    p-1.5 rounded-lg border transition-all duration-150 group
+                    text-text-muted border-border
+                    hover:border-border-hover hover:text-text-primary
+                  `}
+                  title="Agregar tarea"
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = `${column.accentColor}15`
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = 'transparent'
+                  }}
+                >
+                  <Plus size={14} />
+                </button>
+              ) : (
+                <div className="w-8 h-8" aria-hidden="true" />
+              )}
+            </div>
           </div>
 
           {/* Task list — droppable area */}
@@ -134,6 +164,7 @@ export function Column({ column, tasks, enterIndex, celebratingIds }: ColumnProp
                     column={column}
                     onEdit={(t) => setEditingTask(t)}
                     isCelebrating={celebratingIds?.has(task.id) ?? false}
+                    isParaHoy={isParaHoy}
                   />
                 ))
               ) : (

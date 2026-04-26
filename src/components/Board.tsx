@@ -18,6 +18,7 @@ import { COLUMNS } from '../types'
 import { useKanbanStore } from '../store/kanbanStore'
 import { Column } from './Column'
 import { DragCard } from './DragCard'
+import { InProgressBanner } from './InProgressBanner'
 import { isInWeekWindow, getEffectiveDueDate } from '../utils/date'
 
 interface BoardProps {
@@ -190,6 +191,7 @@ export function Board({ onActivityCompleted }: BoardProps) {
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
     >
+      <InProgressBanner mode="tasks" />
       <div className="flex gap-4 md:gap-5 px-6 md:px-10 pb-8 flex-1 min-h-0 max-w-[1400px] mx-auto w-full">
         {COLUMNS.map((col, i) => {
           const colTasks = windowTasks.filter((t) => t.column === col.id)
