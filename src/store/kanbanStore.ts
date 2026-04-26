@@ -124,7 +124,10 @@ export const useKanbanStore = create<KanbanStore>()(
       createdAt: new Date().toISOString(),
     }
     set({ activities: [...activities, newActivity] })
-    db.insertActivity(newActivity, userId, activities.length).catch(console.error)
+    db.insertActivity(newActivity, userId, activities.length).catch((err) => {
+      console.error(err)
+      alert('Error al guardar actividad: ' + err.message)
+    })
   },
 
   updateActivity: (id, updates) => {
@@ -133,7 +136,10 @@ export const useKanbanStore = create<KanbanStore>()(
     set((state) => ({
       activities: state.activities.map((a) => (a.id === id ? { ...a, ...updates } : a)),
     }))
-    db.updateActivity(id, updates, userId).catch(console.error)
+    db.updateActivity(id, updates, userId).catch((err) => {
+      console.error(err)
+      alert('Error al actualizar actividad: ' + err.message)
+    })
   },
 
   deleteActivity: (id) => {
@@ -143,7 +149,10 @@ export const useKanbanStore = create<KanbanStore>()(
       activities: state.activities.filter((a) => a.id !== id),
       tasks: state.tasks.filter((t) => t.activityId !== id),
     }))
-    db.deleteActivity(id, userId).catch(console.error)
+    db.deleteActivity(id, userId).catch((err) => {
+      console.error(err)
+      alert('Error al eliminar actividad: ' + err.message)
+    })
   },
 
   moveActivity: (id, column) => {
@@ -155,14 +164,20 @@ export const useKanbanStore = create<KanbanStore>()(
         a.id === id ? { ...a, column, completedAt } : a,
       ),
     }))
-    db.updateActivity(id, { column, completedAt }, userId).catch(console.error)
+    db.updateActivity(id, { column, completedAt }, userId).catch((err) => {
+      console.error(err)
+      alert('Error al mover actividad: ' + err.message)
+    })
   },
 
   reorderActivities: (newActivities) => {
     const { userId } = get()
     if (!userId) return
     set({ activities: newActivities })
-    db.reorderActivities(newActivities, userId).catch(console.error)
+    db.reorderActivities(newActivities, userId).catch((err) => {
+      console.error(err)
+      alert('Error al reordenar actividades: ' + err.message)
+    })
   },
 
   addTask: (data) => {
@@ -174,7 +189,10 @@ export const useKanbanStore = create<KanbanStore>()(
       createdAt: new Date().toISOString(),
     }
     set({ tasks: [...tasks, newTask] })
-    db.insertTask(newTask, userId, tasks.length).catch(console.error)
+    db.insertTask(newTask, userId, tasks.length).catch((err) => {
+      console.error(err)
+      alert('Error al guardar tarea: ' + err.message)
+    })
   },
 
   addTasks: (dataList) => {
@@ -187,7 +205,10 @@ export const useKanbanStore = create<KanbanStore>()(
     }))
     const startPos = tasks.length
     set({ tasks: [...tasks, ...newTasks] })
-    db.insertTasks(newTasks, userId, startPos).catch(console.error)
+    db.insertTasks(newTasks, userId, startPos).catch((err) => {
+      console.error(err)
+      alert('Error al guardar tareas: ' + err.message)
+    })
   },
 
   updateTask: (id, updates) => {
@@ -226,7 +247,10 @@ export const useKanbanStore = create<KanbanStore>()(
       }
       return stateUpdate
     })
-    db.updateTask(id, enriched, userId).catch(console.error)
+    db.updateTask(id, enriched, userId).catch((err) => {
+      console.error(err)
+      alert('Error al actualizar tarea: ' + err.message)
+    })
   },
 
   deleteTask: (id) => {
@@ -237,7 +261,10 @@ export const useKanbanStore = create<KanbanStore>()(
       tasks: state.tasks.filter((t) => t.id !== id),
       ...(clearsActive ? { activeTaskId: null, activeTaskStartedAt: null } : {}),
     }))
-    db.deleteTask(id, userId).catch(console.error)
+    db.deleteTask(id, userId).catch((err) => {
+      console.error(err)
+      alert('Error al eliminar tarea: ' + err.message)
+    })
   },
 
   moveTask: (id, column) => {
@@ -272,14 +299,20 @@ export const useKanbanStore = create<KanbanStore>()(
       }
       return stateUpdate
     })
-    db.updateTask(id, { column, completedAt }, userId).catch(console.error)
+    db.updateTask(id, { column, completedAt }, userId).catch((err) => {
+      console.error(err)
+      alert('Error al mover tarea: ' + err.message)
+    })
   },
 
   reorderTasks: (newTasks) => {
     const { userId } = get()
     if (!userId) return
     set({ tasks: newTasks })
-    db.reorderTasks(newTasks, userId).catch(console.error)
+    db.reorderTasks(newTasks, userId).catch((err) => {
+      console.error(err)
+      alert('Error al reordenar tareas: ' + err.message)
+    })
   },
 
   setActiveView: (activeView) => set({ activeView }),
