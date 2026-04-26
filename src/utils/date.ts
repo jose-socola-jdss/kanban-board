@@ -1,3 +1,34 @@
+import type { Task } from '../types'
+
+export function getNextOccurrence(task: Pick<Task, 'recurringType' | 'recurringWeekDay' | 'recurringMonthDay'>): Date | null {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  if (task.recurringType === 'daily') return today
+  if (task.recurringType === 'weekly' && task.recurringWeekDay !== undefined) {
+    const diff = (task.recurringWeekDay - today.getDay() + 7) % 7
+    const next = new Date(today); next.setDate(today.getDate() + diff)
+    return next
+  }
+  if (task.recurringType === 'monthly' && task.recurringMonthDay !== undefined) {
+    let next = new Date(today.getFullYear(), today.getMonth(), task.recurringMonthDay)
+    if (next < today) next = new Date(today.getFullYear(), today.getMonth() + 1, task.recurringMonthDay)
+    return next
+  }
+  return null
+}
+
+export function getEffectiveDueDate(task: Task): string | undefined {
+  if (task.schedulingType === 'recurring') {
+    const next = getNextOccurrence(task)
+    if (!next) return undefined
+    if (task.recurringEndDate) {
+      const end = new Date(task.recurringEndDate + 'T00:00:00')
+      if (next > end) return undefined
+    }
+    return next.toISOString().split('T')[0]
+  }
+  return task.dueDate
+}
+
 /** Returns the start (today at 00:00) and end (today+6 at 23:59) of the 7-day sliding window. */
 export function get7DayWindow(): { start: Date; end: Date } {
   const start = new Date()

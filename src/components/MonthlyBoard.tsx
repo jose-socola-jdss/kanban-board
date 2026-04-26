@@ -26,10 +26,17 @@ function computeActivityColumn(activityId: string, tasks: Task[]): ColumnId {
 export function ActivitiesBoard() {
   const { activities, tasks } = useKanbanStore()
 
+  const oneDayAgo = new Date(); oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+  const visibleActivities = activities.filter((a) => {
+    const col = computeActivityColumn(a.id, tasks)
+    if (col !== 'completed') return true
+    return !!a.completedAt && new Date(a.completedAt) > oneDayAgo
+  })
+
   return (
     <div className="flex gap-4 md:gap-5 px-6 md:px-10 pb-8 flex-1 min-h-0 max-w-[1400px] mx-auto w-full">
       {COLUMNS.map((col, i) => {
-        const colActivities = activities.filter(
+        const colActivities = visibleActivities.filter(
           (a) => computeActivityColumn(a.id, tasks) === col.id
         )
         return (

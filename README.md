@@ -149,18 +149,23 @@ create table public.activities (
 );
 
 create table public.tasks (
-  id           uuid primary key,
-  user_id      uuid references auth.users(id) on delete cascade not null,
-  activity_id  uuid references public.activities(id) on delete set null,
-  title        text not null,
-  description  text,
-  priority     text not null check (priority in ('low', 'medium', 'high')),
-  due_date     text,
-  completed_at text,
-  created_at   text not null,
-  status       text not null check (status in ('pending', 'thisWeek', 'completed')),
-  position     integer not null default 0,
-  tags         text[] default array[]::text[]
+  id                  uuid primary key,
+  user_id             uuid references auth.users(id) on delete cascade not null,
+  activity_id         uuid references public.activities(id) on delete set null,
+  title               text not null,
+  description         text,
+  priority            text not null check (priority in ('low', 'medium', 'high')),
+  due_date            text,
+  completed_at        text,
+  created_at          text not null,
+  status              text not null check (status in ('pending', 'thisWeek', 'completed')),
+  position            integer not null default 0,
+  tags                text[] default array[]::text[],
+  scheduling_type     text check (scheduling_type in ('none', 'fixed', 'recurring')),
+  recurring_type      text check (recurring_type in ('daily', 'weekly', 'monthly')),
+  recurring_week_day  integer,
+  recurring_month_day integer,
+  recurring_end_date  text
 );
 
 alter table public.activities enable row level security;
@@ -177,13 +182,22 @@ create policy "propietario_tasks"
   with check (auth.uid() = user_id);
 ```
 
-> **Nota:** Si ya tienes la tabla `tasks` creada con `activity_id NOT NULL`, ejecuta esta migración para hacerlo opcional:
+> **Nota — migraciones para bases de datos existentes:**
 > ```sql
+> -- 1. Hacer activity_id opcional (si fue creado con NOT NULL)
 > alter table public.tasks alter column activity_id drop not null;
 > alter table public.tasks
 >   drop constraint if exists tasks_activity_id_fkey,
 >   add constraint tasks_activity_id_fkey
 >     foreign key (activity_id) references public.activities(id) on delete set null;
+>
+> -- 2. Añadir columnas de programación recurrente
+> alter table public.tasks
+>   add column if not exists scheduling_type     text check (scheduling_type in ('none', 'fixed', 'recurring')),
+>   add column if not exists recurring_type      text check (recurring_type in ('daily', 'weekly', 'monthly')),
+>   add column if not exists recurring_week_day  integer,
+>   add column if not exists recurring_month_day integer,
+>   add column if not exists recurring_end_date  text;
 > ```
 
 ### 5 — Configurar la URL de redirección en Supabase

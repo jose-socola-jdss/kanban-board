@@ -18,7 +18,7 @@ import { COLUMNS } from '../types'
 import { useKanbanStore } from '../store/kanbanStore'
 import { Column } from './Column'
 import { DragCard } from './DragCard'
-import { isInWeekWindow } from '../utils/date'
+import { isInWeekWindow, getEffectiveDueDate } from '../utils/date'
 
 interface BoardProps {
   onActivityCompleted?: (activity: { id: string; title: string }) => void
@@ -28,12 +28,25 @@ export function Board({ onActivityCompleted }: BoardProps) {
   const { tasks, activities, moveTask, reorderTasks } = useKanbanStore()
   const [activeTask, setActiveTask] = useState<Task | null>(null)
 
+  const oneDayAgo = new Date(); oneDayAgo.setDate(oneDayAgo.getDate() - 1)
   const today = new Date(); today.setHours(0, 0, 0, 0)
+
   const windowTasks = tasks.filter((t) => {
-    if (!t.dueDate) return true                                              // sin fecha → siempre visible
+    // Completed: only show if within last 24h
+    if (t.column === 'completed') {
+      return !!t.completedAt && new Date(t.completedAt) > oneDayAgo
+    }
+    // Recurring: use next occurrence for window check
+    if (t.schedulingType === 'recurring') {
+      const eff = getEffectiveDueDate(t)
+      if (!eff) return false
+      return isInWeekWindow(eff)
+    }
+    // Fixed date or no date
+    if (!t.dueDate) return true
     const due = new Date(t.dueDate + 'T00:00:00')
-    if (due < today && t.column !== 'completed') return true                 // vencida y no finalizada → visible
-    return isInWeekWindow(t.dueDate)                                         // dentro de la ventana de 7 días
+    if (due < today) return true   // overdue + not completed
+    return isInWeekWindow(t.dueDate)
   })
   const [celebratingIds, setCelebratingIds] = useState<Set<string>>(new Set())
   const celebrateTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())

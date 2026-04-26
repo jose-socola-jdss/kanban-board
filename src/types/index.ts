@@ -1,6 +1,8 @@
 export type Priority = 'low' | 'medium' | 'high'
 export type ColumnId = 'pending' | 'thisWeek' | 'completed'
 export type ViewMode = 'tasks' | 'projects'
+export type SchedulingType = 'none' | 'fixed' | 'recurring'
+export type RecurringType = 'daily' | 'weekly' | 'monthly'
 
 export interface Activity {
   id: string
@@ -23,6 +25,11 @@ export interface Task {
   column: ColumnId
   activityId?: string
   tags?: string[]
+  schedulingType?: SchedulingType
+  recurringType?: RecurringType
+  recurringWeekDay?: number    // 0-6 (JS: 0=Dom, 1=Lun, ..., 6=Sáb)
+  recurringMonthDay?: number   // 1-31
+  recurringEndDate?: string    // YYYY-MM-DD
 }
 
 export interface ColumnConfig {

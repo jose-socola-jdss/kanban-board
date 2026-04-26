@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { X, Sparkles, Target } from 'lucide-react'
 import type { Task, ColumnId, Priority } from '../types'
 import { COLUMNS, PRIORITY_CONFIG } from '../types'
+import type { SchedulingType, RecurringType } from '../types'
 import { useKanbanStore } from '../store/kanbanStore'
 
 interface TaskModalProps {
@@ -21,9 +22,21 @@ export function TaskModal({ task, defaultColumn = 'pending', onClose }: TaskModa
   const [title, setTitle] = useState(task?.title ?? '')
   const [description, setDescription] = useState(task?.description ?? '')
   const [priority, setPriority] = useState<Priority>(task?.priority ?? 'medium')
-  const [dueDate, setDueDate] = useState(task?.dueDate ?? '')
   const [column, setColumn] = useState<ColumnId>(task?.column ?? defaultColumn)
   const [error, setError] = useState('')
+
+  // Scheduling state
+  const [schedulingType, setSchedulingType] = useState<SchedulingType>(
+    task?.schedulingType ?? (task?.dueDate ? 'fixed' : 'none')
+  )
+  const [dueDate, setDueDate] = useState(task?.schedulingType === 'fixed' ? (task?.dueDate ?? '') : (task?.dueDate ?? ''))
+  const [recurringType, setRecurringType] = useState<RecurringType>(
+    task?.recurringType ?? 'daily'
+  )
+  const [recurringWeekDay, setRecurringWeekDay] = useState(task?.recurringWeekDay ?? 1)
+  const [recurringMonthDay, setRecurringMonthDay] = useState<number | ''>(task?.recurringMonthDay ?? 15)
+  const [recurringHasEndDate, setRecurringHasEndDate] = useState(!!task?.recurringEndDate)
+  const [recurringEndDate, setRecurringEndDate] = useState(task?.recurringEndDate ?? '')
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -47,22 +60,55 @@ export function TaskModal({ task, defaultColumn = 'pending', onClose }: TaskModa
       return
     }
 
-    if (task) {
-      updateTask(task.id, {
+    let taskData: Partial<Omit<Task, 'id' | 'createdAt'>> & { title: string; priority: Priority; column: ColumnId }
+
+    if (schedulingType === 'none') {
+      taskData = {
         title: title.trim(),
         description: description.trim() || undefined,
         priority,
-        dueDate: dueDate || undefined,
         column,
-      })
+        dueDate: undefined,
+        schedulingType: 'none',
+        recurringType: undefined,
+        recurringWeekDay: undefined,
+        recurringMonthDay: undefined,
+        recurringEndDate: undefined,
+      }
+    } else if (schedulingType === 'fixed') {
+      taskData = {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        priority,
+        column,
+        dueDate: dueDate || undefined,
+        schedulingType: 'fixed',
+        recurringType: undefined,
+        recurringWeekDay: undefined,
+        recurringMonthDay: undefined,
+        recurringEndDate: undefined,
+      }
     } else {
-      addTask({
+      // recurring
+      const monthDay = typeof recurringMonthDay === 'number' ? recurringMonthDay : undefined
+      taskData = {
         title: title.trim(),
         description: description.trim() || undefined,
         priority,
-        dueDate: dueDate || undefined,
         column,
-      })
+        dueDate: undefined,
+        schedulingType: 'recurring',
+        recurringType,
+        recurringWeekDay: recurringType === 'weekly' ? recurringWeekDay : undefined,
+        recurringMonthDay: recurringType === 'monthly' ? monthDay : undefined,
+        recurringEndDate: recurringHasEndDate && recurringEndDate ? recurringEndDate : undefined,
+      }
+    }
+
+    if (task) {
+      updateTask(task.id, taskData)
+    } else {
+      addTask(taskData as Parameters<typeof addTask>[0])
     }
     onClose()
   }
@@ -92,7 +138,7 @@ export function TaskModal({ task, defaultColumn = 'pending', onClose }: TaskModa
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4 overflow-y-auto max-h-[calc(100vh-160px)]">
           {/* Project badge — read-only, only shown when editing a task that belongs to a project */}
           {task && taskProject && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-3 border border-border">
@@ -134,7 +180,7 @@ export function TaskModal({ task, defaultColumn = 'pending', onClose }: TaskModa
             />
           </div>
 
-          {/* Priority + Date row */}
+          {/* Priority + Column row */}
           <div className="grid grid-cols-2 gap-3">
             {/* Priority */}
             <div>
@@ -165,37 +211,147 @@ export function TaskModal({ task, defaultColumn = 'pending', onClose }: TaskModa
               </div>
             </div>
 
-            {/* Column + Due date */}
-            <div className="flex flex-col gap-3">
-              <div>
-                <label className="block text-xs font-body font-500 text-text-secondary mb-1.5">
-                  Columna
-                </label>
-                <select
-                  value={column}
-                  onChange={(e) => setColumn(e.target.value as ColumnId)}
-                  className="form-input w-full px-3 py-2 rounded-xl text-xs font-body cursor-pointer"
-                >
-                  {COLUMNS.map((col) => (
-                    <option key={col.id} value={col.id}>
-                      {col.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-body font-500 text-text-secondary mb-1.5">
-                  Fecha límite
-                </label>
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className="form-input w-full px-3 py-2 rounded-xl text-xs font-body cursor-pointer"
-                />
-              </div>
+            {/* Column */}
+            <div>
+              <label className="block text-xs font-body font-500 text-text-secondary mb-1.5">
+                Columna
+              </label>
+              <select
+                value={column}
+                onChange={(e) => setColumn(e.target.value as ColumnId)}
+                className="form-input w-full px-3 py-2 rounded-xl text-xs font-body cursor-pointer"
+              >
+                {COLUMNS.map((col) => (
+                  <option key={col.id} value={col.id}>
+                    {col.label}
+                  </option>
+                ))}
+              </select>
             </div>
+          </div>
+
+          {/* Programación */}
+          <div>
+            <label className="block text-xs font-body font-500 text-text-secondary mb-2">
+              Programación
+            </label>
+
+            {/* Type selector */}
+            <div className="flex gap-1.5 mb-3">
+              {(['none', 'fixed', 'recurring'] as const).map((type) => {
+                const labels = { none: 'Sin fecha', fixed: 'Fecha fija', recurring: 'Programación especial' }
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setSchedulingType(type)}
+                    className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-body border transition-all duration-150 ${
+                      schedulingType === type
+                        ? 'bg-surface-0 text-text-primary border-border shadow-sm'
+                        : 'text-text-muted border-border hover:text-text-secondary hover:border-border-hover bg-surface-3'
+                    }`}
+                  >
+                    {labels[type]}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Fixed: date picker */}
+            {schedulingType === 'fixed' && (
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="form-input w-full px-3 py-2 rounded-xl text-sm font-body cursor-pointer"
+              />
+            )}
+
+            {/* Recurring: options */}
+            {schedulingType === 'recurring' && (
+              <div className="space-y-3">
+                {/* Frequency */}
+                <div className="p-3 rounded-xl bg-surface-3 border border-border space-y-2">
+                  <p className="text-[10px] font-body font-500 text-text-muted uppercase tracking-wide">Repetir</p>
+                  <div className="space-y-1.5">
+                    {/* Daily */}
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="radio" name="recurringType" value="daily"
+                        checked={recurringType === 'daily'}
+                        onChange={() => setRecurringType('daily')}
+                        className="accent-teal-500"
+                      />
+                      <span className="text-xs font-body text-text-secondary">Todos los días</span>
+                    </label>
+                    {/* Weekly */}
+                    <label className="flex items-center gap-2 cursor-pointer flex-wrap">
+                      <input type="radio" name="recurringType" value="weekly"
+                        checked={recurringType === 'weekly'}
+                        onChange={() => setRecurringType('weekly')}
+                        className="accent-teal-500"
+                      />
+                      <span className="text-xs font-body text-text-secondary">Cada semana, el</span>
+                      <select
+                        value={recurringWeekDay}
+                        onChange={(e) => { setRecurringType('weekly'); setRecurringWeekDay(Number(e.target.value)) }}
+                        className="form-input px-2 py-1 rounded-lg text-xs font-body cursor-pointer"
+                      >
+                        {[{v:1,l:'Lunes'},{v:2,l:'Martes'},{v:3,l:'Miércoles'},{v:4,l:'Jueves'},{v:5,l:'Viernes'},{v:6,l:'Sábado'},{v:0,l:'Domingo'}].map(({v,l}) => (
+                          <option key={v} value={v}>{l}</option>
+                        ))}
+                      </select>
+                    </label>
+                    {/* Monthly */}
+                    <label className="flex items-center gap-2 cursor-pointer flex-wrap">
+                      <input type="radio" name="recurringType" value="monthly"
+                        checked={recurringType === 'monthly'}
+                        onChange={() => setRecurringType('monthly')}
+                        className="accent-teal-500"
+                      />
+                      <span className="text-xs font-body text-text-secondary">Cada mes, el día</span>
+                      <input
+                        type="number"
+                        min={1} max={31}
+                        value={recurringMonthDay}
+                        onChange={(e) => { setRecurringType('monthly'); setRecurringMonthDay(Number(e.target.value) || '') }}
+                        className="form-input w-14 px-2 py-1 rounded-lg text-xs font-body text-center"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* End date */}
+                <div className="p-3 rounded-xl bg-surface-3 border border-border space-y-2">
+                  <p className="text-[10px] font-body font-500 text-text-muted uppercase tracking-wide">Termina</p>
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="radio" name="recurringEnd" value="never"
+                        checked={!recurringHasEndDate}
+                        onChange={() => setRecurringHasEndDate(false)}
+                        className="accent-teal-500"
+                      />
+                      <span className="text-xs font-body text-text-secondary">Indefinidamente</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer flex-wrap">
+                      <input type="radio" name="recurringEnd" value="until"
+                        checked={recurringHasEndDate}
+                        onChange={() => setRecurringHasEndDate(true)}
+                        className="accent-teal-500"
+                      />
+                      <span className="text-xs font-body text-text-secondary">Hasta</span>
+                      {recurringHasEndDate && (
+                        <input
+                          type="date"
+                          value={recurringEndDate}
+                          onChange={(e) => setRecurringEndDate(e.target.value)}
+                          className="form-input px-2 py-1 rounded-lg text-xs font-body cursor-pointer"
+                        />
+                      )}
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Actions */}

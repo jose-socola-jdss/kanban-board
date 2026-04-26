@@ -5,6 +5,7 @@ import { Pencil, Trash2, GripVertical, CalendarDays, Check, Target } from 'lucid
 import type { Task, ColumnConfig } from '../types'
 import { PRIORITY_CONFIG } from '../types'
 import { useKanbanStore } from '../store/kanbanStore'
+import { getEffectiveDueDate } from '../utils/date'
 
 interface TaskCardProps {
   task: Task
@@ -28,11 +29,11 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false }: TaskCa
   const priority = PRIORITY_CONFIG[task.priority]
   const isCompleted = task.column === 'completed'
   const priorityHoverStyle = PRIORITY_HOVER_STYLES[task.priority]
-  const effectiveDueDate = task.dueDate ?? activity?.dueDate
+  const effectiveDueDate = getEffectiveDueDate(task) ?? activity?.dueDate
   const activityTasks = tasks.filter((item) => item.activityId === task.activityId)
   const activityTaskIndex = activityTasks.findIndex((item) => item.id === task.id)
   const activityLabel = activity && activityTaskIndex !== -1
-    ? `Tarea ${activityTaskIndex + 1} de ${activityTasks.length} de la Actividad "${activity.title}"`
+    ? `Tarea ${activityTaskIndex + 1} de ${activityTasks.length} del Proyecto "${activity.title}"`
     : null
 
   const {

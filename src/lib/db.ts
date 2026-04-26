@@ -28,6 +28,11 @@ interface TaskRow {
   status: ColumnId
   position: number
   tags: string[] | null
+  scheduling_type: string | null
+  recurring_type: string | null
+  recurring_week_day: number | null
+  recurring_month_day: number | null
+  recurring_end_date: string | null
 }
 
 // ─── Mappers (DB ↔ TypeScript) ────────────────────────────────────────────────
@@ -56,6 +61,11 @@ function toTask(r: TaskRow): Task {
     createdAt: r.created_at,
     column: r.status,
     tags: r.tags ?? undefined,
+    schedulingType: (r.scheduling_type as any) ?? (r.due_date ? 'fixed' : undefined),
+    recurringType: (r.recurring_type as any) ?? undefined,
+    recurringWeekDay: r.recurring_week_day ?? undefined,
+    recurringMonthDay: r.recurring_month_day ?? undefined,
+    recurringEndDate: r.recurring_end_date ?? undefined,
   }
 }
 
@@ -87,6 +97,11 @@ function fromTask(t: Task, userId: string, position: number) {
     status: t.column,
     position,
     tags: t.tags ?? null,
+    scheduling_type: t.schedulingType ?? null,
+    recurring_type: t.recurringType ?? null,
+    recurring_week_day: t.recurringWeekDay ?? null,
+    recurring_month_day: t.recurringMonthDay ?? null,
+    recurring_end_date: t.recurringEndDate ?? null,
   }
 }
 
@@ -179,7 +194,7 @@ export const db = {
 
   async updateTask(
     id: string,
-    updates: Partial<Pick<Task, 'title' | 'description' | 'priority' | 'dueDate' | 'completedAt' | 'column' | 'tags' | 'activityId'>>,
+    updates: Partial<Pick<Task, 'title' | 'description' | 'priority' | 'dueDate' | 'completedAt' | 'column' | 'tags' | 'activityId' | 'schedulingType' | 'recurringType' | 'recurringWeekDay' | 'recurringMonthDay' | 'recurringEndDate'>>,
     userId: string,
   ): Promise<void> {
     const patch: Record<string, unknown> = {}
@@ -191,6 +206,11 @@ export const db = {
     if (updates.column      !== undefined) patch.status       = updates.column
     if (updates.tags        !== undefined) patch.tags         = updates.tags ?? null
     if ('activityId' in updates)          patch.activity_id  = updates.activityId ?? null
+    if ('schedulingType'    in updates) patch.scheduling_type  = updates.schedulingType ?? null
+    if ('recurringType'     in updates) patch.recurring_type   = updates.recurringType ?? null
+    if ('recurringWeekDay'  in updates) patch.recurring_week_day = updates.recurringWeekDay ?? null
+    if ('recurringMonthDay' in updates) patch.recurring_month_day = updates.recurringMonthDay ?? null
+    if ('recurringEndDate'  in updates) patch.recurring_end_date = updates.recurringEndDate ?? null
     const { error } = await supabase
       .from('tasks')
       .update(patch)

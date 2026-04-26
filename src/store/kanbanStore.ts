@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import type { Task, ColumnId, Activity, Priority, ViewMode } from '../types'
-import { getCurrentMonthKey } from '../utils/date'
+import type { Task, ColumnId, Activity, Priority, ViewMode, SchedulingType, RecurringType } from '../types'
+import { getCurrentMonthKey, getNextOccurrence } from '../utils/date'
 import { db } from '../lib/db'
 
 interface TaskInput {
@@ -10,6 +10,11 @@ interface TaskInput {
   dueDate?: string
   column: ColumnId
   activityId?: string
+  schedulingType?: SchedulingType
+  recurringType?: RecurringType
+  recurringWeekDay?: number
+  recurringMonthDay?: number
+  recurringEndDate?: string
 }
 
 interface ActivityInput {
@@ -56,10 +61,27 @@ export const useKanbanStore = create<KanbanStore>()((set, get) => ({
   loadUserData: async (userId) => {
     set({ isLoading: true, userId })
     try {
-      const [activities, tasks] = await Promise.all([
+      let [activities, tasks] = await Promise.all([
         db.getActivities(userId),
         db.getTasks(userId),
       ])
+      // Auto-reset recurring tasks completed more than 1 day ago that still have future occurrences
+      const oneDayAgo = new Date(); oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+      const toReset = tasks.filter((t) => {
+        if (t.schedulingType !== 'recurring' || t.column !== 'completed') return false
+        if (!t.completedAt || new Date(t.completedAt) >= oneDayAgo) return false
+        const next = getNextOccurrence(t)
+        if (!next) return false
+        if (t.recurringEndDate && next > new Date(t.recurringEndDate + 'T00:00:00')) return false
+        return true
+      })
+      if (toReset.length > 0) {
+        tasks = tasks.map((t) => toReset.some((r) => r.id === t.id)
+          ? { ...t, column: 'pending' as ColumnId, completedAt: undefined } : t)
+        await Promise.all(toReset.map((t) =>
+          db.updateTask(t.id, { column: 'pending' as ColumnId, completedAt: undefined }, userId).catch(console.error)
+        ))
+      }
       set({ activities, tasks, isLoading: false })
     } catch (err) {
       console.error('Error cargando datos:', err)
