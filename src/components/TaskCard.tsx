@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Pencil, Trash2, GripVertical, CalendarDays, Check, Target, Clock } from 'lucide-react'
+import { Pencil, Trash2, GripVertical, CalendarDays, Check, Target } from 'lucide-react'
 import type { Task, ColumnConfig } from '../types'
 import { PRIORITY_CONFIG } from '../types'
 import { useKanbanStore } from '../store/kanbanStore'
 import { getEffectiveDueDate } from '../utils/date'
-import { useEffect } from 'react'
 
 interface TaskCardProps {
   task: Task
@@ -24,7 +23,6 @@ const PRIORITY_HOVER_STYLES = {
 
 export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHoy = false }: TaskCardProps) {
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [timeLeft, setTimeLeft] = useState<string | null>(null)
   const updateTask = useKanbanStore((s) => s.updateTask)
   const deleteTask = useKanbanStore((s) => s.deleteTask)
   const activities = useKanbanStore((s) => s.activities)
@@ -88,42 +86,6 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHo
     return { text: `${date}, ${time}` }
   })()
 
-  // Countdown timer effect
-  useEffect(() => {
-    if (!isParaHoy || !task.scheduledEnd || isCompleted) {
-      setTimeLeft(null)
-      return
-    }
-
-    const updateTimer = () => {
-      const now = new Date()
-      const [hours, minutes] = task.scheduledEnd!.split(':').map(Number)
-      const target = new Date()
-      target.setHours(hours, minutes, 0, 0)
-
-      const diff = target.getTime() - now.getTime()
-      if (diff <= 0) {
-        setTimeLeft('00:00')
-        return
-      }
-
-      const h = Math.floor(diff / 3600000)
-      const m = Math.floor((diff % 3600000) / 60000)
-      const s = Math.floor((diff % 60000) / 1000)
-
-      const parts = []
-      if (h > 0) parts.push(String(h).padStart(2, '0'))
-      parts.push(String(m).padStart(2, '0'))
-      parts.push(String(s).padStart(2, '0'))
-      
-      setTimeLeft(parts.join(':'))
-    }
-
-    updateTimer()
-    const interval = setInterval(updateTimer, 1000)
-    return () => clearInterval(interval)
-  }, [isParaHoy, task.scheduledEnd, isCompleted])
-
   return (
     <div
       ref={setNodeRef}
@@ -147,12 +109,12 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHo
       />
 
       <div className="px-4 py-3.5 pl-5">
-        {/* Top row: drag handle + actions */}
+        {/* Top row: drag handle + title + actions/time */}
         <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="flex items-start gap-2 flex-1 min-w-0">
             {/* Drag handle */}
             <button
-              className="flex-shrink-0 text-text-muted opacity-60 group-hover:opacity-100 transition-opacity duration-150 cursor-grab active:cursor-grabbing touch-none"
+              className="mt-1 flex-shrink-0 text-text-muted opacity-60 group-hover:opacity-100 transition-opacity duration-150 cursor-grab active:cursor-grabbing touch-none"
               title="Arrastrar"
               type="button"
             >
@@ -160,44 +122,6 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHo
             </button>
 
             <div className="flex-1 min-w-0">
-              {/* Scheduled start/end times (Para hoy column) - MOVED TO TOP */}
-              {isParaHoy && (
-                <div className="flex flex-col gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1">
-                      <span className="text-[8px] font-body text-text-muted uppercase tracking-tighter opacity-60">Ini</span>
-                      <input
-                        type="time"
-                        value={task.scheduledStart || ''}
-                        onChange={(e) => updateTask(task.id, { scheduledStart: e.target.value })}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        className="bg-surface-4/40 border border-border/40 rounded px-1 py-0.5 text-[10px] font-body text-text-secondary focus:outline-none focus:border-week/40 hover:border-week/20 transition-all w-[70px] cursor-pointer"
-                      />
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[8px] font-body text-text-muted uppercase tracking-tighter opacity-60">Fin</span>
-                      <input
-                        type="time"
-                        value={task.scheduledEnd || ''}
-                        onChange={(e) => updateTask(task.id, { scheduledEnd: e.target.value })}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        className="bg-surface-4/40 border border-border/40 rounded px-1 py-0.5 text-[10px] font-body text-text-secondary focus:outline-none focus:border-week/40 hover:border-week/20 transition-all w-[70px] cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Timer display */}
-                  {timeLeft && (
-                    <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-week/5 border border-week/10 animate-pulse-slow">
-                      <Clock size={10} className="text-week opacity-80" />
-                      <span className="text-[9px] font-body font-600 text-week tracking-wider">
-                        QUEDAN: {timeLeft}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Title */}
               <h3
                 className={`
@@ -210,26 +134,54 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHo
             </div>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={() => onEdit(task)}
-              className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-surface-4 transition-all duration-150"
-              title="Editar"
-              type="button"
-            >
-              <Pencil size={12} />
-            </button>
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={() => setConfirmDelete(true)}
-              className="p-1 rounded-md text-text-muted hover:text-rose-400 hover:bg-rose-400/10 transition-all duration-150"
-              title="Eliminar"
-              type="button"
-            >
-              <Trash2 size={12} />
-            </button>
+          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+            {/* Time selectors (Para hoy column) - MOVED TO TOP RIGHT & STACKED */}
+            {isParaHoy && !isCompleted && (
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1 justify-end">
+                  <span className="text-[8px] font-body text-text-muted uppercase tracking-tighter opacity-60">Ini</span>
+                  <input
+                    type="time"
+                    value={task.scheduledStart || ''}
+                    onChange={(e) => updateTask(task.id, { scheduledStart: e.target.value })}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="bg-surface-4/40 border border-border/40 rounded px-1 py-0.5 text-[10px] font-body text-text-secondary focus:outline-none focus:border-week/40 hover:border-week/20 transition-all w-[65px] cursor-pointer"
+                  />
+                </div>
+                <div className="flex items-center gap-1 justify-end">
+                  <span className="text-[8px] font-body text-text-muted uppercase tracking-tighter opacity-60">Fin</span>
+                  <input
+                    type="time"
+                    value={task.scheduledEnd || ''}
+                    onChange={(e) => updateTask(task.id, { scheduledEnd: e.target.value })}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="bg-surface-4/40 border border-border/40 rounded px-1 py-0.5 text-[10px] font-body text-text-secondary focus:outline-none focus:border-week/40 hover:border-week/20 transition-all w-[65px] cursor-pointer"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => onEdit(task)}
+                className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-surface-4 transition-all duration-150"
+                title="Editar"
+                type="button"
+              >
+                <Pencil size={11} />
+              </button>
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setConfirmDelete(true)}
+                className="p-1 rounded-md text-text-muted hover:text-rose-400 hover:bg-rose-400/10 transition-all duration-150"
+                title="Eliminar"
+                type="button"
+              >
+                <Trash2 size={11} />
+              </button>
+            </div>
           </div>
         </div>
 

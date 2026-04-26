@@ -145,12 +145,11 @@ export function Column({ column, tasks, enterIndex, celebratingIds }: ColumnProp
           <div
             ref={setNodeRef}
             className={`
-              column-scroll flex-1 p-3 space-y-2.5 overflow-y-auto
+              column-scroll flex-1 p-3 space-y-2.5
               min-h-[120px]
               transition-all duration-200
               ${isOver ? 'bg-white/[0.02]' : ''}
             `}
-            style={{ maxHeight: 'calc(100vh - 260px)' }}
           >
             <SortableContext
               items={tasks.map((t) => t.id)}

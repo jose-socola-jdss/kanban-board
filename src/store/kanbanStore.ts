@@ -335,6 +335,8 @@ export const useKanbanStore = create<KanbanStore>()(
         tasks: state.tasks,
         activeView: state.activeView,
         selectedMonth: state.selectedMonth,
+        activeTaskId: state.activeTaskId,
+        activeTaskStartedAt: state.activeTaskStartedAt,
       }),
     }
   )
