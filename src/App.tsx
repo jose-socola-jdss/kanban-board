@@ -2,12 +2,19 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, supabaseConfigured } from './lib/supabase'
 import { Header } from './components/Header'
+import { Sidebar } from './components/Sidebar'
 import { Board } from './components/Board'
 import { ActivitiesBoard } from './components/MonthlyBoard'
 import { ActivityCelebration } from './components/ActivityCelebration'
 import { Login } from './components/Login'
+import { TaskModal } from './components/TaskModal'
+import { ActivityModal } from './components/GoalModal'
+import { OverviewPage } from './pages/OverviewPage'
+import { CalendarPage } from './pages/CalendarPage'
+import { StatsPage } from './pages/StatsPage'
 import { useTheme } from './hooks/useTheme'
 import { useKanbanStore } from './store/kanbanStore'
+import type { ColumnId } from './types'
 
 interface ActivityCelebrationItem {
   id: string
@@ -16,6 +23,9 @@ interface ActivityCelebrationItem {
 
 // undefined = todavía verificando sesión | null = sin sesión | Session = autenticado
 type SessionState = Session | null | undefined
+
+// Pages that use the board's own header
+const BOARD_VIEWS = ['tasks', 'projects'] as const
 
 export default function App() {
   const { theme, toggle } = useTheme()
@@ -28,19 +38,20 @@ export default function App() {
   const [activityCelebration, setActivityCelebration] = useState<ActivityCelebrationItem | null>(null)
   const celebrationQueue = useRef<ActivityCelebrationItem[]>([])
 
+  // Quick-create state for new views
+  const [showNewTask, setShowNewTask] = useState(false)
+  const [newTaskDefaultColumn, setNewTaskDefaultColumn] = useState<ColumnId>('pending')
+  const [newTaskDefaultDate, setNewTaskDefaultDate] = useState<string | undefined>()
+  const [showNewProject, setShowNewProject] = useState(false)
+
   // ── Escucha cambios de sesión ──────────────────────────────────────────────
   useEffect(() => {
-    // Escucha cambios de sesión y maneja la carga inicial
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       setSession(currentSession)
-      
-      // Solo cargamos datos si hay usuario y es un evento relevante (inicio de sesión o refresh)
-      // Evitamos cargar datos en cada pequeño cambio si ya tenemos sesión
       if (currentSession?.user) {
         loadUserData(currentSession.user.id)
       }
     })
-
     return () => subscription.unsubscribe()
   }, [loadUserData])
 
@@ -63,6 +74,17 @@ export default function App() {
       setActivityCelebration(celebrationQueue.current.shift() ?? null)
     }
   }, [activityCelebration])
+
+  // ── Helpers to open modals from new pages ─────────────────────────────────
+  const handleNewTask = (defaultDate?: string) => {
+    setNewTaskDefaultDate(defaultDate)
+    setNewTaskDefaultColumn('pending')
+    setShowNewTask(true)
+  }
+
+  const handleNewProject = () => {
+    setShowNewProject(true)
+  }
 
   // ── Variables de entorno no configuradas ──────────────────────────────────
   if (!supabaseConfigured) {
@@ -92,13 +114,15 @@ export default function App() {
     return <Login />
   }
 
-  // ── Autenticado → mostrar tablero ──────────────────────────────────────────
+  const isBoardView = (BOARD_VIEWS as readonly string[]).includes(activeView)
+
+  // ── Autenticado → mostrar tablero + navegación ────────────────────────────
   return (
     <div
-      className="grain min-h-screen flex flex-col bg-surface-0 relative"
+      className="grain min-h-screen bg-surface-0 relative"
       style={{ backgroundColor: 'rgb(var(--surface-0))' }}
     >
-      {/* Background radial glow — adapts per theme */}
+      {/* Background radial glow */}
       <div
         className="pointer-events-none fixed inset-0 z-0"
         style={{
@@ -116,39 +140,104 @@ export default function App() {
         }}
       />
 
-      {/* Pattern overlay — adapts per theme */}
+      {/* Dot pattern */}
       <div
         className="pointer-events-none fixed inset-0 z-0"
         style={
           isDark
-            ? {
-                backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.18) 1.2px, transparent 1.2px)',
-                backgroundSize: '32px 32px',
-                opacity: 0.65,
-              }
-            : {
-                backgroundImage: 'radial-gradient(circle, rgba(0,0,0,0.14) 1.2px, transparent 1.2px)',
-                backgroundSize: '32px 32px',
-                opacity: 0.55,
-              }
+            ? { backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.18) 1.2px, transparent 1.2px)', backgroundSize: '32px 32px', opacity: 0.65 }
+            : { backgroundImage: 'radial-gradient(circle, rgba(0,0,0,0.14) 1.2px, transparent 1.2px)', backgroundSize: '32px 32px', opacity: 0.55 }
         }
       />
 
       {activityCelebration && <ActivityCelebration title={activityCelebration.title} />}
 
-      {/* Content */}
-      <div className="relative z-10 flex flex-col flex-1 min-h-screen">
-        <Header
-          isDark={isDark}
-          onToggleTheme={toggle}
-          onSignOut={() => supabase.auth.signOut()}
-        />
-        <main className="flex-1 flex flex-col min-h-0 pt-6">
-          {activeView === 'projects'
-            ? <ActivitiesBoard />
-            : <Board onActivityCompleted={enqueueActivityCelebration} />}
+      {/* Sidebar — always visible when logged in */}
+      <Sidebar />
+
+      {/* Main layout pushed right by sidebar width (56px = w-14) */}
+      <div className="relative z-10 flex flex-col min-h-screen pl-14">
+        {/* Header — only for board views */}
+        {isBoardView && (
+          <Header
+            isDark={isDark}
+            onToggleTheme={toggle}
+            onSignOut={() => supabase.auth.signOut()}
+          />
+        )}
+
+        {/* Global header for non-board pages */}
+        {!isBoardView && (
+          <header className="px-6 md:px-10 pt-8 pb-4 flex items-center justify-between gap-4 max-w-[1400px] mx-auto w-full">
+            <div className="flex items-center gap-3">
+              <div>
+                <p className="text-[10px] font-body text-text-muted uppercase tracking-widest">Mi Tablero</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggle}
+                className="theme-toggle"
+                title={isDark ? 'Modo claro' : 'Modo oscuro'}
+                aria-label={isDark ? 'Activar modo claro' : 'Activar modo oscuro'}
+              >
+                <div className="theme-toggle-knob">
+                  {isDark
+                    ? <span className="theme-toggle-icon text-[10px]">🌙</span>
+                    : <span className="theme-toggle-icon text-[10px]">☀️</span>
+                  }
+                </div>
+              </button>
+              <button
+                onClick={() => supabase.auth.signOut()}
+                title="Cerrar sesión"
+                className="flex items-center justify-center w-9 h-9 rounded-xl bg-surface-3 border border-border text-text-muted hover:text-text-secondary hover:border-border-hover transition-all duration-150 text-sm"
+              >
+                ↪
+              </button>
+            </div>
+          </header>
+        )}
+
+        <main className="flex-1 flex flex-col min-h-0">
+          {/* Board views */}
+          {activeView === 'projects' && (
+            <ActivitiesBoard />
+          )}
+          {activeView === 'tasks' && (
+            <Board onActivityCompleted={enqueueActivityCelebration} />
+          )}
+
+          {/* New views — shared padding */}
+          {(activeView === 'overview' || activeView === 'calendar' || activeView === 'stats') && (
+            <div className="px-6 md:px-10 pb-10 pt-2 max-w-[1400px] mx-auto w-full">
+              {activeView === 'overview' && (
+                <OverviewPage onNewTask={handleNewTask} onNewProject={handleNewProject} />
+              )}
+              {activeView === 'calendar' && (
+                <CalendarPage onNewTask={handleNewTask} />
+              )}
+              {activeView === 'stats' && (
+                <StatsPage />
+              )}
+            </div>
+          )}
         </main>
       </div>
+
+      {/* Global modals for new views */}
+      {showNewTask && (
+        <TaskModal
+          defaultColumn={newTaskDefaultColumn}
+          defaultDueDate={newTaskDefaultDate}
+          onClose={() => { setShowNewTask(false); setNewTaskDefaultDate(undefined) }}
+        />
+      )}
+      {showNewProject && (
+        <ActivityModal
+          onClose={() => setShowNewProject(false)}
+        />
+      )}
     </div>
   )
 }

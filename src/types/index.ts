@@ -1,6 +1,6 @@
 export type Priority = 'low' | 'medium' | 'high'
 export type ColumnId = 'pending' | 'thisWeek' | 'completed'
-export type ViewMode = 'tasks' | 'projects'
+export type ViewMode = 'tasks' | 'projects' | 'overview' | 'calendar' | 'stats'
 export type SchedulingType = 'none' | 'fixed' | 'recurring'
 export type RecurringType = 'daily' | 'weekly' | 'monthly'
 

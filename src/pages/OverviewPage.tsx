@@ -1,0 +1,346 @@
+import { useState, useMemo } from 'react'
+import { Plus, Search, Filter, FolderKanban, ClipboardList } from 'lucide-react'
+import { useKanbanStore } from '../store/kanbanStore'
+import { PRIORITY_CONFIG, COLUMNS } from '../types'
+import type { ColumnId, Priority } from '../types'
+
+type SortKey = 'createdAt' | 'dueDate' | 'priority' | 'title'
+type GroupKey = 'status' | 'project' | 'priority' | 'none'
+
+const PRIORITY_ORDER: Record<Priority, number> = { high: 0, medium: 1, low: 2 }
+
+interface OverviewPageProps {
+  onNewTask: () => void
+  onNewProject: () => void
+}
+
+export function OverviewPage({ onNewTask, onNewProject }: OverviewPageProps) {
+  const tasks = useKanbanStore((s) => s.tasks)
+  const activities = useKanbanStore((s) => s.activities)
+
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState<ColumnId | 'all'>('all')
+  const [filterPriority, setFilterPriority] = useState<Priority | 'all'>('all')
+  const [filterProject, setFilterProject] = useState<string>('all')
+  const [sortKey, setSortKey] = useState<SortKey>('createdAt')
+  const [groupBy, setGroupBy] = useState<GroupKey>('status')
+  const [showFilters, setShowFilters] = useState(false)
+
+  const filtered = useMemo(() => {
+    return tasks
+      .filter((t) => {
+        if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false
+        if (filterStatus !== 'all' && t.column !== filterStatus) return false
+        if (filterPriority !== 'all' && t.priority !== filterPriority) return false
+        if (filterProject !== 'all' && (t.activityId ?? 'none') !== filterProject) return false
+        return true
+      })
+      .sort((a, b) => {
+        if (sortKey === 'priority') return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]
+        if (sortKey === 'title') return a.title.localeCompare(b.title)
+        if (sortKey === 'dueDate') {
+          if (!a.dueDate && !b.dueDate) return 0
+          if (!a.dueDate) return 1
+          if (!b.dueDate) return -1
+          return a.dueDate.localeCompare(b.dueDate)
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      })
+  }, [tasks, search, filterStatus, filterPriority, filterProject, sortKey])
+
+  const grouped = useMemo(() => {
+    if (groupBy === 'none') return { 'Todas': filtered }
+
+    return filtered.reduce<Record<string, typeof filtered>>((acc, t) => {
+      let key = ''
+      if (groupBy === 'status') key = COLUMNS.find((c) => c.id === t.column)?.label ?? t.column
+      else if (groupBy === 'priority') key = PRIORITY_CONFIG[t.priority].label
+      else if (groupBy === 'project') {
+        const act = activities.find((a) => a.id === t.activityId)
+        key = act ? act.title : 'Sin proyecto'
+      }
+      if (!acc[key]) acc[key] = []
+      acc[key].push(t)
+      return acc
+    }, {})
+  }, [filtered, groupBy, activities])
+
+  const statusColor: Record<ColumnId, string> = {
+    pending: 'bg-rose-400/15 text-rose-400 border-rose-400/20',
+    thisWeek: 'bg-blue-400/15 text-blue-400 border-blue-400/20',
+    completed: 'bg-emerald-400/15 text-emerald-400 border-emerald-400/20',
+  }
+  const statusLabel: Record<ColumnId, string> = {
+    pending: 'Pendiente',
+    thisWeek: 'Para hoy',
+    completed: 'Finalizada',
+  }
+
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="font-display text-2xl font-700 text-text-primary leading-none">Vista General</h2>
+          <p className="text-xs font-body text-text-muted mt-1">{tasks.length} tareas · {activities.length} proyectos</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onNewProject}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-body font-500 text-text-secondary bg-surface-3 border border-border hover:border-border-hover hover:text-text-primary transition-all"
+          >
+            <FolderKanban size={13} />
+            Nuevo proyecto
+          </button>
+          <button
+            onClick={onNewTask}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-body font-500 text-white bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-400 hover:to-cyan-400 transition-all shadow-lg shadow-teal-500/20"
+          >
+            <Plus size={13} />
+            Nueva tarea
+          </button>
+        </div>
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[200px]">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Buscar tarea..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-8 pr-3 py-2 rounded-xl text-xs font-body text-text-primary bg-surface-3 border border-border hover:border-border-hover focus:outline-none focus:border-teal-500/40 transition-all placeholder:text-text-muted"
+          />
+        </div>
+
+        {/* Filter toggle */}
+        <button
+          onClick={() => setShowFilters((v) => !v)}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-body font-500 border transition-all ${showFilters ? 'bg-teal-500/10 border-teal-500/30 text-teal-400' : 'bg-surface-3 border-border text-text-muted hover:text-text-secondary'}`}
+        >
+          <Filter size={12} />
+          Filtros
+        </button>
+
+        {/* Group by */}
+        <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-3 border border-border">
+          <span className="text-[10px] font-body text-text-muted uppercase tracking-wide">Agrupar</span>
+          <select
+            value={groupBy}
+            onChange={(e) => setGroupBy(e.target.value as GroupKey)}
+            className="text-xs font-body text-text-primary bg-transparent outline-none cursor-pointer"
+          >
+            <option value="status">Estado</option>
+            <option value="project">Proyecto</option>
+            <option value="priority">Prioridad</option>
+            <option value="none">Sin agrupar</option>
+          </select>
+        </div>
+
+        {/* Sort */}
+        <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-3 border border-border">
+          <span className="text-[10px] font-body text-text-muted uppercase tracking-wide">Ordenar</span>
+          <select
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as SortKey)}
+            className="text-xs font-body text-text-primary bg-transparent outline-none cursor-pointer"
+          >
+            <option value="createdAt">Creación</option>
+            <option value="dueDate">Fecha límite</option>
+            <option value="priority">Prioridad</option>
+            <option value="title">Título</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Expanded filters */}
+      {showFilters && (
+        <div className="flex items-center gap-3 flex-wrap p-4 rounded-2xl bg-surface-1 border border-border/50 animate-scale-in">
+          {/* Status */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-body text-text-muted uppercase tracking-wide">Estado</span>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as ColumnId | 'all')}
+              className="text-xs font-body text-text-primary bg-surface-3 border border-border rounded-lg px-2 py-1 outline-none cursor-pointer"
+            >
+              <option value="all">Todos</option>
+              <option value="pending">Pendiente</option>
+              <option value="thisWeek">Para hoy</option>
+              <option value="completed">Finalizada</option>
+            </select>
+          </div>
+          {/* Priority */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-body text-text-muted uppercase tracking-wide">Prioridad</span>
+            <select
+              value={filterPriority}
+              onChange={(e) => setFilterPriority(e.target.value as Priority | 'all')}
+              className="text-xs font-body text-text-primary bg-surface-3 border border-border rounded-lg px-2 py-1 outline-none cursor-pointer"
+            >
+              <option value="all">Todas</option>
+              <option value="high">Alta</option>
+              <option value="medium">Media</option>
+              <option value="low">Baja</option>
+            </select>
+          </div>
+          {/* Project */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-body text-text-muted uppercase tracking-wide">Proyecto</span>
+            <select
+              value={filterProject}
+              onChange={(e) => setFilterProject(e.target.value)}
+              className="text-xs font-body text-text-primary bg-surface-3 border border-border rounded-lg px-2 py-1 outline-none cursor-pointer"
+            >
+              <option value="all">Todos</option>
+              <option value="none">Sin proyecto</option>
+              {activities.map((a) => (
+                <option key={a.id} value={a.id}>{a.title}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={() => { setFilterStatus('all'); setFilterPriority('all'); setFilterProject('all') }}
+            className="text-[10px] font-body text-text-muted hover:text-rose-400 transition-colors ml-auto"
+          >
+            Limpiar filtros
+          </button>
+        </div>
+      )}
+
+      {/* Task groups */}
+      {Object.entries(grouped).map(([groupName, groupTasks]) => (
+        <div key={groupName} className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] font-body font-600 text-text-muted uppercase tracking-widest">{groupName}</span>
+            <span className="text-[10px] font-body text-text-muted bg-surface-3 border border-border px-1.5 py-0.5 rounded-full">{groupTasks.length}</span>
+            <div className="flex-1 h-px bg-border/50 ml-1" />
+          </div>
+
+          <div className="rounded-2xl border border-border/60 bg-surface-1 overflow-hidden">
+            {groupTasks.length === 0 ? (
+              <div className="px-5 py-6 text-center text-xs font-body text-text-muted">
+                No hay tareas en este grupo
+              </div>
+            ) : (
+              groupTasks.map((task, i) => {
+                const activity = activities.find((a) => a.id === task.activityId)
+                const pCfg = PRIORITY_CONFIG[task.priority]
+                const dueDate = task.dueDate ? new Date(task.dueDate + 'T00:00:00') : null
+                const isOverdue = dueDate && dueDate < today && task.column !== 'completed'
+                const dueDays = dueDate ? Math.round((dueDate.getTime() - today.getTime()) / 86400000) : null
+
+                return (
+                  <div
+                    key={task.id}
+                    className={`flex items-center gap-4 px-5 py-3 transition-colors hover:bg-surface-3/40 ${i < groupTasks.length - 1 ? 'border-b border-border/40' : ''}`}
+                  >
+                    {/* Status dot */}
+                    <span className={`inline-flex items-center text-[10px] font-body font-500 px-2 py-0.5 rounded-full border ${statusColor[task.column]} flex-shrink-0`}>
+                      {statusLabel[task.column]}
+                    </span>
+
+                    {/* Title */}
+                    <span className={`flex-1 text-sm font-body font-500 text-text-primary min-w-0 truncate ${task.column === 'completed' ? 'line-through text-text-muted' : ''}`}>
+                      {task.title}
+                    </span>
+
+                    {/* Activity */}
+                    {activity && (
+                      <span className="hidden md:flex items-center gap-1 text-[10px] font-body text-text-muted flex-shrink-0">
+                        <FolderKanban size={9} />
+                        <span className="max-w-[100px] truncate">{activity.title}</span>
+                      </span>
+                    )}
+
+                    {/* Priority */}
+                    <span className={`hidden sm:inline text-[10px] font-body font-500 ${pCfg.color} flex-shrink-0`}>
+                      {pCfg.label}
+                    </span>
+
+                    {/* Due date */}
+                    {dueDate && (
+                      <span className={`hidden md:inline text-[10px] font-body flex-shrink-0 ${isOverdue ? 'text-rose-400' : 'text-text-muted'}`}>
+                        {dueDays === 0 ? 'Hoy' : dueDays === 1 ? 'Mañana' : dueDays && dueDays < 0 ? `Hace ${Math.abs(dueDays)}d` : `${dueDays}d`}
+                      </span>
+                    )}
+
+                    {/* No project icon */}
+                    {!activity && (
+                      <span className="hidden md:flex items-center gap-1 text-[10px] font-body text-text-muted/40 flex-shrink-0">
+                        <ClipboardList size={9} />
+                        <span>Sin proyecto</span>
+                      </span>
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+      ))}
+
+      {filtered.length === 0 && (
+        <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+          <ClipboardList size={32} className="text-text-muted opacity-30" />
+          <p className="text-sm font-body text-text-muted">No se encontraron tareas con los filtros actuales</p>
+        </div>
+      )}
+
+      {/* Project summary */}
+      {activities.length > 0 && (
+        <div className="mt-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[10px] font-body font-600 text-text-muted uppercase tracking-widest">Proyectos</span>
+            <div className="flex-1 h-px bg-border/50" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {activities.map((activity) => {
+              const actTasks = tasks.filter((t) => t.activityId === activity.id)
+              const done = actTasks.filter((t) => t.column === 'completed').length
+              const pct = actTasks.length > 0 ? Math.round((done / actTasks.length) * 100) : 0
+              const isCompleted = activity.column === 'completed'
+              return (
+                <div key={activity.id} className="flex flex-col gap-3 p-4 rounded-2xl bg-surface-1 border border-border/60 hover:border-border transition-all">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-6 h-6 rounded-lg bg-teal-500/10 flex items-center justify-center flex-shrink-0">
+                        <FolderKanban size={11} className="text-teal-400" />
+                      </div>
+                      <span className="text-sm font-body font-500 text-text-primary truncate">{activity.title}</span>
+                    </div>
+                    <span className={`text-[10px] font-body font-500 px-2 py-0.5 rounded-full border flex-shrink-0 ${isCompleted ? 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20' : 'bg-blue-400/10 text-blue-400 border-blue-400/20'}`}>
+                      {isCompleted ? 'Completado' : 'En curso'}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-body text-text-muted">{done} / {actTasks.length} tareas</span>
+                      <span className="text-[10px] font-body font-600 text-text-primary">{pct}%</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-surface-4">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-400 transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                  {activity.dueDate && (
+                    <span className="text-[10px] font-body text-text-muted">
+                      Fecha límite: {new Date(activity.dueDate + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

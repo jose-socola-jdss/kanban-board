@@ -9,10 +9,11 @@ import { getTodayString } from '../utils/date'
 interface TaskModalProps {
   task?: Task | null
   defaultColumn?: ColumnId
+  defaultDueDate?: string
   onClose: () => void
 }
 
-export function TaskModal({ task, defaultColumn = 'pending', onClose }: TaskModalProps) {
+export function TaskModal({ task, defaultColumn = 'pending', defaultDueDate, onClose }: TaskModalProps) {
   const addTask = useKanbanStore((s) => s.addTask)
   const updateTask = useKanbanStore((s) => s.updateTask)
   const activities = useKanbanStore((s) => s.activities)
@@ -33,12 +34,12 @@ export function TaskModal({ task, defaultColumn = 'pending', onClose }: TaskModa
   const defaultSchedulingType: SchedulingType = isParaHoyDefault
     ? 'fixed'
     : (task?.schedulingType ?? (task?.dueDate ? 'fixed' : 'none'))
-  const defaultDueDate = isParaHoyDefault
+  const defaultDueDateValue = isParaHoyDefault
     ? todayStr
-    : (task?.dueDate ?? '')
+    : (defaultDueDate ?? task?.dueDate ?? '')
 
   const [schedulingType, setSchedulingType] = useState<SchedulingType>(defaultSchedulingType)
-  const [dueDate, setDueDate] = useState(defaultDueDate)
+  const [dueDate, setDueDate] = useState(defaultDueDateValue)
   const [recurringType, setRecurringType] = useState<RecurringType>(
     task?.recurringType ?? 'daily'
   )
