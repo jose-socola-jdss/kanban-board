@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, supabaseConfigured } from './lib/supabase'
 import { Header } from './components/Header'
-import { Sidebar } from './components/Sidebar'
+import { Sidebar, SidebarToggle } from './components/Sidebar'
 import { Board } from './components/Board'
 import { ActivitiesBoard } from './components/MonthlyBoard'
 import { ActivityCelebration } from './components/ActivityCelebration'
@@ -14,18 +14,14 @@ import { CalendarPage } from './pages/CalendarPage'
 import { StatsPage } from './pages/StatsPage'
 import { useTheme } from './hooks/useTheme'
 import { useKanbanStore } from './store/kanbanStore'
-import type { ColumnId } from './types'
+import type { ColumnId, Task } from './types'
 
 interface ActivityCelebrationItem {
   id: string
   title: string
 }
 
-// undefined = todavía verificando sesión | null = sin sesión | Session = autenticado
 type SessionState = Session | null | undefined
-
-// Pages that use the board's own header
-const BOARD_VIEWS = ['tasks', 'projects'] as const
 
 export default function App() {
   const { theme, toggle } = useTheme()
@@ -38,24 +34,26 @@ export default function App() {
   const [activityCelebration, setActivityCelebration] = useState<ActivityCelebrationItem | null>(null)
   const celebrationQueue = useRef<ActivityCelebrationItem[]>([])
 
-  // Quick-create state for new views
+  // Sidebar collapse
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  // Global modal state
   const [showNewTask, setShowNewTask] = useState(false)
   const [newTaskDefaultColumn, setNewTaskDefaultColumn] = useState<ColumnId>('pending')
   const [newTaskDefaultDate, setNewTaskDefaultDate] = useState<string | undefined>()
   const [showNewProject, setShowNewProject] = useState(false)
+  const [editTask, setEditTask] = useState<Task | null>(null)
 
-  // ── Escucha cambios de sesión ──────────────────────────────────────────────
+  // ── Session listener ───────────────────────────────────────────────────────
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       setSession(currentSession)
-      if (currentSession?.user) {
-        loadUserData(currentSession.user.id)
-      }
+      if (currentSession?.user) loadUserData(currentSession.user.id)
     })
     return () => subscription.unsubscribe()
   }, [loadUserData])
 
-  // ── Cola de celebraciones ──────────────────────────────────────────────────
+  // ── Celebration queue ──────────────────────────────────────────────────────
   const enqueueActivityCelebration = useCallback((activity: ActivityCelebrationItem) => {
     const queuedIds = new Set(
       [activityCelebration?.id, ...celebrationQueue.current.map((i) => i.id)].filter(Boolean) as string[],
@@ -75,18 +73,16 @@ export default function App() {
     }
   }, [activityCelebration])
 
-  // ── Helpers to open modals from new pages ─────────────────────────────────
+  // ── Modal helpers ──────────────────────────────────────────────────────────
   const handleNewTask = (defaultDate?: string) => {
     setNewTaskDefaultDate(defaultDate)
     setNewTaskDefaultColumn('pending')
     setShowNewTask(true)
   }
+  const handleNewProject = () => setShowNewProject(true)
+  const handleEditTask = (task: Task) => setEditTask(task)
 
-  const handleNewProject = () => {
-    setShowNewProject(true)
-  }
-
-  // ── Variables de entorno no configuradas ──────────────────────────────────
+  // ── Guards ─────────────────────────────────────────────────────────────────
   if (!supabaseConfigured) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black px-6">
@@ -100,7 +96,6 @@ export default function App() {
     )
   }
 
-  // ── Pantalla de carga inicial (verificando sesión) ─────────────────────────
   if (session === undefined || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
@@ -109,55 +104,50 @@ export default function App() {
     )
   }
 
-  // ── Sin sesión → mostrar login ─────────────────────────────────────────────
-  if (session === null) {
-    return <Login />
-  }
+  if (session === null) return <Login />
 
-  const isBoardView = (BOARD_VIEWS as readonly string[]).includes(activeView)
+  const isBoardView = activeView === 'tasks' || activeView === 'projects'
+  const mainPadding = sidebarCollapsed ? 'pl-0' : 'pl-14'
 
-  // ── Autenticado → mostrar tablero + navegación ────────────────────────────
   return (
     <div
       className="grain min-h-screen bg-surface-0 relative"
       style={{ backgroundColor: 'rgb(var(--surface-0))' }}
     >
-      {/* Background radial glow */}
-      <div
-        className="pointer-events-none fixed inset-0 z-0"
-        style={{
-          background: isDark
-            ? `
-                radial-gradient(ellipse 80% 50% at 20% -10%, rgba(255,107,107,0.035) 0%, transparent 60%),
-                radial-gradient(ellipse 60% 40% at 80% 10%, rgba(0,191,165,0.05) 0%, transparent 50%),
-                radial-gradient(ellipse 50% 60% at 50% 100%, rgba(77,208,225,0.03) 0%, transparent 60%)
-              `
-            : `
-                radial-gradient(ellipse 80% 50% at 20% -10%, rgba(255,107,107,0.06) 0%, transparent 55%),
-                radial-gradient(ellipse 60% 40% at 80% 10%, rgba(0,191,165,0.07) 0%, transparent 50%),
-                radial-gradient(ellipse 50% 60% at 50% 105%, rgba(77,208,225,0.05) 0%, transparent 55%)
-              `,
-        }}
-      />
-
+      {/* Background glow */}
+      <div className="pointer-events-none fixed inset-0 z-0" style={{
+        background: isDark
+          ? `radial-gradient(ellipse 80% 50% at 20% -10%, rgba(255,107,107,0.035) 0%, transparent 60%),
+             radial-gradient(ellipse 60% 40% at 80% 10%, rgba(0,191,165,0.05) 0%, transparent 50%),
+             radial-gradient(ellipse 50% 60% at 50% 100%, rgba(77,208,225,0.03) 0%, transparent 60%)`
+          : `radial-gradient(ellipse 80% 50% at 20% -10%, rgba(255,107,107,0.06) 0%, transparent 55%),
+             radial-gradient(ellipse 60% 40% at 80% 10%, rgba(0,191,165,0.07) 0%, transparent 50%),
+             radial-gradient(ellipse 50% 60% at 50% 105%, rgba(77,208,225,0.05) 0%, transparent 55%)`,
+      }} />
       {/* Dot pattern */}
-      <div
-        className="pointer-events-none fixed inset-0 z-0"
-        style={
-          isDark
-            ? { backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.18) 1.2px, transparent 1.2px)', backgroundSize: '32px 32px', opacity: 0.65 }
-            : { backgroundImage: 'radial-gradient(circle, rgba(0,0,0,0.14) 1.2px, transparent 1.2px)', backgroundSize: '32px 32px', opacity: 0.55 }
-        }
-      />
+      <div className="pointer-events-none fixed inset-0 z-0" style={
+        isDark
+          ? { backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.18) 1.2px, transparent 1.2px)', backgroundSize: '32px 32px', opacity: 0.65 }
+          : { backgroundImage: 'radial-gradient(circle, rgba(0,0,0,0.14) 1.2px, transparent 1.2px)', backgroundSize: '32px 32px', opacity: 0.55 }
+      } />
 
       {activityCelebration && <ActivityCelebration title={activityCelebration.title} />}
 
-      {/* Sidebar — always visible when logged in */}
-      <Sidebar />
+      {/* Sidebar */}
+      <Sidebar
+        isDark={isDark}
+        onToggleTheme={toggle}
+        onSignOut={() => supabase.auth.signOut()}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+      />
 
-      {/* Main layout pushed right by sidebar width (56px = w-14) */}
-      <div className="relative z-10 flex flex-col min-h-screen pl-14">
-        {/* Header — only for board views */}
+      {/* Sidebar collapse toggle — always visible */}
+      <SidebarToggle collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((v) => !v)} />
+
+      {/* Main content */}
+      <div className={`relative z-10 flex flex-col min-h-screen transition-all duration-300 ${mainPadding}`}>
+        {/* Board header (Tareas / Proyectos toggle, theme, logout) */}
         {isBoardView && (
           <Header
             isDark={isDark}
@@ -166,77 +156,47 @@ export default function App() {
           />
         )}
 
-        {/* Global header for non-board pages */}
-        {!isBoardView && (
-          <header className="px-6 md:px-10 pt-8 pb-4 flex items-center justify-between gap-4 max-w-[1400px] mx-auto w-full">
-            <div className="flex items-center gap-3">
-              <div>
-                <p className="text-[10px] font-body text-text-muted uppercase tracking-widest">Mi Tablero</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={toggle}
-                className="theme-toggle"
-                title={isDark ? 'Modo claro' : 'Modo oscuro'}
-                aria-label={isDark ? 'Activar modo claro' : 'Activar modo oscuro'}
-              >
-                <div className="theme-toggle-knob">
-                  {isDark
-                    ? <span className="theme-toggle-icon text-[10px]">🌙</span>
-                    : <span className="theme-toggle-icon text-[10px]">☀️</span>
-                  }
-                </div>
-              </button>
-              <button
-                onClick={() => supabase.auth.signOut()}
-                title="Cerrar sesión"
-                className="flex items-center justify-center w-9 h-9 rounded-xl bg-surface-3 border border-border text-text-muted hover:text-text-secondary hover:border-border-hover transition-all duration-150 text-sm"
-              >
-                ↪
-              </button>
-            </div>
-          </header>
-        )}
-
         <main className="flex-1 flex flex-col min-h-0">
-          {/* Board views */}
-          {activeView === 'projects' && (
-            <ActivitiesBoard />
-          )}
-          {activeView === 'tasks' && (
-            <Board onActivityCompleted={enqueueActivityCelebration} />
-          )}
+          {activeView === 'projects' && <ActivitiesBoard />}
+          {activeView === 'tasks'    && <Board onActivityCompleted={enqueueActivityCelebration} />}
 
-          {/* New views — shared padding */}
           {(activeView === 'overview' || activeView === 'calendar' || activeView === 'stats') && (
-            <div className="px-6 md:px-10 pb-10 pt-2 max-w-[1400px] mx-auto w-full">
+            <div className="px-6 md:px-10 pb-10 pt-6 max-w-[1400px] mx-auto w-full">
               {activeView === 'overview' && (
-                <OverviewPage onNewTask={handleNewTask} onNewProject={handleNewProject} />
+                <OverviewPage
+                  onNewTask={handleNewTask}
+                  onNewProject={handleNewProject}
+                  onEditTask={handleEditTask}
+                />
               )}
               {activeView === 'calendar' && (
-                <CalendarPage onNewTask={handleNewTask} />
+                <CalendarPage
+                  onNewTask={handleNewTask}
+                  onNewProject={handleNewProject}
+                />
               )}
-              {activeView === 'stats' && (
-                <StatsPage />
-              )}
+              {activeView === 'stats' && <StatsPage />}
             </div>
           )}
         </main>
       </div>
 
-      {/* Global modals for new views */}
-      {showNewTask && (
+      {/* Global modals */}
+      {(showNewTask) && (
         <TaskModal
           defaultColumn={newTaskDefaultColumn}
           defaultDueDate={newTaskDefaultDate}
           onClose={() => { setShowNewTask(false); setNewTaskDefaultDate(undefined) }}
         />
       )}
-      {showNewProject && (
-        <ActivityModal
-          onClose={() => setShowNewProject(false)}
+      {editTask && (
+        <TaskModal
+          task={editTask}
+          onClose={() => setEditTask(null)}
         />
+      )}
+      {showNewProject && (
+        <ActivityModal onClose={() => setShowNewProject(false)} />
       )}
     </div>
   )
