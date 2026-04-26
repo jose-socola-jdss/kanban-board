@@ -5,7 +5,8 @@ import { Pencil, Trash2, GripVertical, CalendarDays, Check, Target, Clock } from
 import type { Task, ColumnConfig } from '../types'
 import { PRIORITY_CONFIG } from '../types'
 import { useKanbanStore } from '../store/kanbanStore'
-import { getEffectiveDueDate } from '../utils/date'
+import { getEffectiveDueDate, getTodayString } from '../utils/date'
+import { useEffect } from 'react'
 
 interface TaskCardProps {
   task: Task
@@ -23,6 +24,8 @@ const PRIORITY_HOVER_STYLES = {
 
 export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHoy = false }: TaskCardProps) {
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [timeLeft, setTimeLeft] = useState<string | null>(null)
+  const updateTask = useKanbanStore((s) => s.updateTask)
   const deleteTask = useKanbanStore((s) => s.deleteTask)
   const activities = useKanbanStore((s) => s.activities)
   const tasks = useKanbanStore((s) => s.tasks)
@@ -85,6 +88,42 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHo
     return { text: `${date}, ${time}` }
   })()
 
+  // Countdown timer effect
+  useEffect(() => {
+    if (!isParaHoy || !task.scheduledEnd || isCompleted) {
+      setTimeLeft(null)
+      return
+    }
+
+    const updateTimer = () => {
+      const now = new Date()
+      const [hours, minutes] = task.scheduledEnd!.split(':').map(Number)
+      const target = new Date()
+      target.setHours(hours, minutes, 0, 0)
+
+      const diff = target.getTime() - now.getTime()
+      if (diff <= 0) {
+        setTimeLeft('00:00')
+        return
+      }
+
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      const s = Math.floor((diff % 60000) / 1000)
+
+      const parts = []
+      if (h > 0) parts.push(String(h).padStart(2, '0'))
+      parts.push(String(m).padStart(2, '0'))
+      parts.push(String(s).padStart(2, '0'))
+      
+      setTimeLeft(parts.join(':'))
+    }
+
+    updateTimer()
+    const interval = setInterval(updateTimer, 1000)
+    return () => clearInterval(interval)
+  }, [isParaHoy, task.scheduledEnd, isCompleted])
+
   return (
     <div
       ref={setNodeRef}
@@ -121,6 +160,44 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHo
             </button>
 
             <div className="flex-1 min-w-0">
+              {/* Scheduled start/end times (Para hoy column) - MOVED TO TOP */}
+              {isParaHoy && (
+                <div className="flex flex-col gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[8px] font-body text-text-muted uppercase tracking-tighter opacity-60">Ini</span>
+                      <input
+                        type="time"
+                        value={task.scheduledStart || ''}
+                        onChange={(e) => updateTask(task.id, { scheduledStart: e.target.value })}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className="bg-surface-4/40 border border-border/40 rounded px-1 py-0.5 text-[10px] font-body text-text-secondary focus:outline-none focus:border-week/40 hover:border-week/20 transition-all w-[70px] cursor-pointer"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[8px] font-body text-text-muted uppercase tracking-tighter opacity-60">Fin</span>
+                      <input
+                        type="time"
+                        value={task.scheduledEnd || ''}
+                        onChange={(e) => updateTask(task.id, { scheduledEnd: e.target.value })}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className="bg-surface-4/40 border border-border/40 rounded px-1 py-0.5 text-[10px] font-body text-text-secondary focus:outline-none focus:border-week/40 hover:border-week/20 transition-all w-[70px] cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Timer display */}
+                  {timeLeft && (
+                    <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-week/5 border border-week/10 animate-pulse-slow">
+                      <Clock size={10} className="text-week opacity-80" />
+                      <span className="text-[9px] font-body font-600 text-week tracking-wider">
+                        QUEDAN: {timeLeft}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Title */}
               <h3
                 className={`
@@ -195,24 +272,6 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHo
               <span className="opacity-70">Fecha de finalización: </span>
               <span className="font-500">{dueDateLabel.formatted}</span>
               <span className={`ml-1 ${dueDateLabel.overdue ? '' : 'opacity-60'}`}>({dueDateLabel.countdown})</span>
-            </span>
-          </div>
-        )}
-
-        {/* Scheduled start/end times (Para hoy column) */}
-        {isParaHoy && (task.scheduledStart || task.scheduledEnd) && (
-          <div className="ml-5 flex items-center gap-1 mt-1">
-            <Clock size={10} className="flex-shrink-0 text-text-muted opacity-60" />
-            <span className="text-[10px] font-body text-text-muted">
-              {task.scheduledStart && (
-                <span className="font-500">{task.scheduledStart}</span>
-              )}
-              {task.scheduledStart && task.scheduledEnd && (
-                <span className="opacity-60 mx-0.5">→</span>
-              )}
-              {task.scheduledEnd && (
-                <span className="font-500">{task.scheduledEnd}</span>
-              )}
             </span>
           </div>
         )}

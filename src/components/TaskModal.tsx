@@ -4,6 +4,7 @@ import type { Task, ColumnId, Priority } from '../types'
 import { COLUMNS, PRIORITY_CONFIG } from '../types'
 import type { SchedulingType, RecurringType } from '../types'
 import { useKanbanStore } from '../store/kanbanStore'
+import { getTodayString } from '../utils/date'
 
 interface TaskModalProps {
   task?: Task | null
@@ -20,7 +21,7 @@ export function TaskModal({ task, defaultColumn = 'pending', onClose }: TaskModa
   const taskProject = task?.activityId ? activities.find((a) => a.id === task.activityId) : null
 
   const isParaHoyDefault = !task && defaultColumn === 'thisWeek'
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = getTodayString()
 
   const [title, setTitle] = useState(task?.title ?? '')
   const [description, setDescription] = useState(task?.description ?? '')

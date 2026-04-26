@@ -1,6 +1,11 @@
 # Kanban — Mi Tablero
 
-Tablero kanban personal para gestión de proyectos y tareas. Cada proyecto agrupa un conjunto de tareas que avanzan por tres columnas: **Pendientes → En progreso → Finalizadas**. Al completar la última tarea de un proyecto se dispara una animación de celebración en pantalla completa. Las tareas también pueden crearse sin asociarlas a ningún proyecto.
+Tablero kanban personal para gestión de proyectos y tareas. Cada proyecto agrupa un conjunto de tareas que avanzan por tres columnas: **Pendientes → Para hoy → Finalizadas**. Al completar la última tarea de un proyecto se dispara una animación de celebración en pantalla completa. Las tareas también pueden crearse sin asociarlas a ningún proyecto.
+
+### Nuevas Funcionalidades
+- **Programación directa en "Para hoy"**: Ahora puedes definir la hora de inicio y fin directamente desde la tarjeta en la columna "Para hoy", sin abrir el modal.
+- **Temporizador en tiempo real**: Las tareas con hora de fin programada muestran un temporizador con la cuenta regresiva de cuánto tiempo falta para terminar.
+- **Sincronización de fecha local**: Corrección del desfase horario (UTC) al crear tareas; ahora siempre se usa la fecha local del usuario.
 
 El modo claro usa un fondo azul-gris suave (`#EEF1F7`) con columnas y tarjetas en blanco puro, siguiendo la misma paleta de la interfaz de referencia fisholg.com.
 

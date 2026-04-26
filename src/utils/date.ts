@@ -16,6 +16,14 @@ export function getNextOccurrence(task: Pick<Task, 'recurringType' | 'recurringW
   return null
 }
 
+export function getTodayString(): string {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export function getEffectiveDueDate(task: Task): string | undefined {
   if (task.schedulingType === 'recurring') {
     const next = getNextOccurrence(task)
@@ -24,7 +32,10 @@ export function getEffectiveDueDate(task: Task): string | undefined {
       const end = new Date(task.recurringEndDate + 'T00:00:00')
       if (next > end) return undefined
     }
-    return next.toISOString().split('T')[0]
+    const year = next.getFullYear()
+    const month = String(next.getMonth() + 1).padStart(2, '0')
+    const day = String(next.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
   }
   return task.dueDate
 }
