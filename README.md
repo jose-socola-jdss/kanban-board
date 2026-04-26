@@ -46,6 +46,19 @@ Plataforma de productividad personal para gestión de proyectos y tareas con tab
 - Selectores de **hora de inicio y fin** directamente en la tarjeta
 - La tarea activa se resalta visualmente con borde teal y etiqueta "EN CURSO"
 
+### 🔄 Auto-promoción a "Para hoy" al iniciar sesión
+Al cargar la app, el sistema evalúa automáticamente qué tareas deben estar en la columna **Para hoy** y las mueve sin intervención manual. Solo se evalúan las tareas que están en **Pendientes**:
+
+| Tipo de tarea | Condición |
+|---|---|
+| Recurrente **diaria** | Siempre se mueve al día actual |
+| Recurrente **semanal** | Si el día de la semana configurado coincide con hoy |
+| Recurrente **mensual** | Si el día del mes configurado coincide con hoy |
+| Fecha **fija** | Si `dueDate == hoy` |
+| Sin tipo / normal | Si `dueDate ≤ hoy` (vencidas o del día) |
+
+Las tareas recurrentes con `recurringEndDate` ya vencida se ignoran. Las que ya están en "Para hoy" o "Finalizadas" no se tocan.
+
 ### 📅 Calendario interactivo
 - Vista mensual con chips de tareas por día de entrega, coloreados por prioridad
 - **Hover en cada día**: aparecen botones rápidos para **Crear tarea** (ícono `+`) y **Crear proyecto** (ícono carpeta), sin necesidad de hacer clic primero
