@@ -11,7 +11,7 @@ interface ActivityRow {
   due_date: string | null
   completed_at: string | null
   created_at: string
-  column: ColumnId
+  status: ColumnId
   position: number
 }
 
@@ -25,7 +25,7 @@ interface TaskRow {
   due_date: string | null
   completed_at: string | null
   created_at: string
-  column: ColumnId
+  status: ColumnId
   position: number
   tags: string[] | null
 }
@@ -40,7 +40,7 @@ function toActivity(r: ActivityRow): Activity {
     dueDate: r.due_date ?? undefined,
     completedAt: r.completed_at ?? undefined,
     createdAt: r.created_at,
-    column: r.column,
+    column: r.status,
   }
 }
 
@@ -54,7 +54,7 @@ function toTask(r: TaskRow): Task {
     dueDate: r.due_date ?? undefined,
     completedAt: r.completed_at ?? undefined,
     createdAt: r.created_at,
-    column: r.column,
+    column: r.status,
     tags: r.tags ?? undefined,
   }
 }
@@ -68,7 +68,7 @@ function fromActivity(a: Activity, userId: string, position: number) {
     due_date: a.dueDate ?? null,
     completed_at: a.completedAt ?? null,
     created_at: a.createdAt,
-    column: a.column,
+    status: a.column,
     position,
   }
 }
@@ -84,7 +84,7 @@ function fromTask(t: Task, userId: string, position: number) {
     due_date: t.dueDate ?? null,
     completed_at: t.completedAt ?? null,
     created_at: t.createdAt,
-    column: t.column,
+    status: t.column,
     position,
     tags: t.tags ?? null,
   }
@@ -122,7 +122,7 @@ export const db = {
     if (updates.description !== undefined) patch.description  = updates.description ?? null
     if (updates.dueDate     !== undefined) patch.due_date     = updates.dueDate ?? null
     if (updates.completedAt !== undefined) patch.completed_at = updates.completedAt ?? null
-    if (updates.column      !== undefined) patch.column       = updates.column
+    if (updates.column      !== undefined) patch.status       = updates.column
     const { error } = await supabase
       .from('activities')
       .update(patch)
@@ -188,7 +188,7 @@ export const db = {
     if (updates.priority    !== undefined) patch.priority     = updates.priority
     if (updates.dueDate     !== undefined) patch.due_date     = updates.dueDate ?? null
     if (updates.completedAt !== undefined) patch.completed_at = updates.completedAt ?? null
-    if (updates.column      !== undefined) patch.column       = updates.column
+    if (updates.column      !== undefined) patch.status       = updates.column
     if (updates.tags        !== undefined) patch.tags         = updates.tags ?? null
     const { error } = await supabase
       .from('tasks')
