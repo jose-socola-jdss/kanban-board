@@ -98,7 +98,9 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHo
         className={`
         task-card group relative rounded-xl border
         transition-all duration-200
-        ${isActive ? 'ring-1 ring-teal-500/30 border-teal-500/40 bg-teal-500/[0.03]' : ''}
+        ${isActive 
+          ? 'border-teal-400 bg-teal-400/5 ring-2 ring-teal-400/30 shadow-md shadow-teal-500/10' 
+          : ''}
         ${isDragging
           ? 'dragging opacity-40 scale-95'
           : 'opacity-100 scale-100'
@@ -125,7 +127,7 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHo
               <GripVertical size={14} />
             </button>
 
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 flex flex-col gap-1.5">
               {/* Title */}
               <h3
                 className={`
@@ -135,6 +137,28 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHo
               >
                 {task.title}
               </h3>
+              
+              {/* Priority badge (moved here for compactness) */}
+              {!isCompleted && (
+                <div className="flex items-center gap-2">
+                  <span className={`
+                    inline-flex items-center gap-1.5 text-[10px] font-body font-500
+                    px-2 py-0.5 rounded-full border border-transparent
+                    bg-surface-4/60 text-text-muted transition-all duration-150
+                    ${priorityHoverStyle}
+                  `}>
+                    <span className="w-1 h-1 rounded-full bg-current opacity-50 transition-opacity duration-150 group-hover:opacity-100" />
+                    <span>{priority.label}</span>
+                  </span>
+                  
+                  {isActive && (
+                    <span className="flex items-center gap-1 text-[9px] font-body font-600 text-teal-500 bg-teal-500/10 px-1.5 py-0.5 rounded uppercase tracking-wide border border-teal-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+                      En curso
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -196,20 +220,6 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHo
           </p>
         )}
 
-        {/* Priority badge (only for non-completed) */}
-        {!isCompleted && (
-          <div className="ml-5 mb-1">
-            <span className={`
-              inline-flex items-center gap-1.5 text-[10px] font-body font-500
-              px-2 py-0.5 rounded-full border border-transparent
-              bg-surface-4/60 text-text-muted transition-all duration-150
-              ${priorityHoverStyle}
-            `}>
-              <span className="w-1 h-1 rounded-full bg-current opacity-50 transition-opacity duration-150 group-hover:opacity-100" />
-              <span>{priority.label}</span>
-            </span>
-          </div>
-        )}
 
         {activityLabel && (
           <div className="ml-5 flex items-center gap-1 mt-2 mb-1">
