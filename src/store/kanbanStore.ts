@@ -68,7 +68,9 @@ export const useKanbanStore = create<KanbanStore>()(
   activeTaskStartedAt: null,
 
   loadUserData: async (userId) => {
-    set({ isLoading: true, userId })
+    const { tasks, activities } = get()
+    const isInitialLoad = tasks.length === 0 && activities.length === 0
+    set({ isLoading: isInitialLoad, userId })
     try {
       let [activities, tasks] = await Promise.all([
         db.getActivities(userId),

@@ -30,14 +30,15 @@ export default function App() {
 
   // ── Escucha cambios de sesión ──────────────────────────────────────────────
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      if (session?.user) loadUserData(session.user.id)
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      if (session?.user) loadUserData(session.user.id)
+    // Escucha cambios de sesión y maneja la carga inicial
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      setSession(currentSession)
+      
+      // Solo cargamos datos si hay usuario y es un evento relevante (inicio de sesión o refresh)
+      // Evitamos cargar datos en cada pequeño cambio si ya tenemos sesión
+      if (currentSession?.user) {
+        loadUserData(currentSession.user.id)
+      }
     })
 
     return () => subscription.unsubscribe()
