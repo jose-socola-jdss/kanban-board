@@ -28,7 +28,13 @@ export function Board({ onActivityCompleted }: BoardProps) {
   const { tasks, activities, moveTask, reorderTasks } = useKanbanStore()
   const [activeTask, setActiveTask] = useState<Task | null>(null)
 
-  const windowTasks = tasks.filter((t) => isInWeekWindow(t.dueDate))
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const windowTasks = tasks.filter((t) => {
+    if (!t.dueDate) return true                                              // sin fecha → siempre visible
+    const due = new Date(t.dueDate + 'T00:00:00')
+    if (due < today && t.column !== 'completed') return true                 // vencida y no finalizada → visible
+    return isInWeekWindow(t.dueDate)                                         // dentro de la ventana de 7 días
+  })
   const [celebratingIds, setCelebratingIds] = useState<Set<string>>(new Set())
   const celebrateTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   const activityCelebrateTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
