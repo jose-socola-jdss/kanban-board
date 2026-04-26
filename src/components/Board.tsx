@@ -18,6 +18,7 @@ import { COLUMNS } from '../types'
 import { useKanbanStore } from '../store/kanbanStore'
 import { Column } from './Column'
 import { DragCard } from './DragCard'
+import { isInWeekWindow } from '../utils/date'
 
 interface BoardProps {
   onActivityCompleted?: (activity: { id: string; title: string }) => void
@@ -26,6 +27,8 @@ interface BoardProps {
 export function Board({ onActivityCompleted }: BoardProps) {
   const { tasks, activities, moveTask, reorderTasks } = useKanbanStore()
   const [activeTask, setActiveTask] = useState<Task | null>(null)
+
+  const windowTasks = tasks.filter((t) => isInWeekWindow(t.dueDate))
   const [celebratingIds, setCelebratingIds] = useState<Set<string>>(new Set())
   const celebrateTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   const activityCelebrateTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
@@ -170,7 +173,7 @@ export function Board({ onActivityCompleted }: BoardProps) {
     >
       <div className="flex gap-4 md:gap-5 px-6 md:px-10 pb-8 flex-1 min-h-0 max-w-[1400px] mx-auto w-full">
         {COLUMNS.map((col, i) => {
-          const colTasks = tasks.filter((t) => t.column === col.id)
+          const colTasks = windowTasks.filter((t) => t.column === col.id)
           return (
             <Column
               key={col.id}
