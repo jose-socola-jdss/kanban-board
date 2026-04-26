@@ -94,11 +94,35 @@ export const useKanbanStore = create<KanbanStore>()(
         ))
       }
 
-      // Auto-move tasks with dueDate === today from 'pending' to 'thisWeek'
+      // ── Auto-move tasks due today (fixed, overdue, or recurring) ────────────
       const todayStr = new Date().toISOString().slice(0, 10)
-      const toMoveToday = tasks.filter((t) =>
-        t.column === 'pending' && t.dueDate === todayStr
-      )
+      const todayDate = new Date(todayStr + 'T00:00:00')
+      const todayDow = todayDate.getDay()       // 0=Sun … 6=Sat
+      const todayDom = todayDate.getDate()       // 1-31
+
+      const isDueToday = (t: (typeof tasks)[number]): boolean => {
+        // Already in Para Hoy or Finalizadas — no need to move
+        if (t.column !== 'pending') return false
+
+        if (t.schedulingType === 'recurring') {
+          // Check recurring end date
+          if (t.recurringEndDate && todayStr > t.recurringEndDate) return false
+          if (t.recurringType === 'daily') return true
+          if (t.recurringType === 'weekly') return t.recurringWeekDay === todayDow
+          if (t.recurringType === 'monthly') return t.recurringMonthDay === todayDom
+          return false
+        }
+
+        // Fixed scheduling: dueDate === today
+        if (t.schedulingType === 'fixed' && t.dueDate === todayStr) return true
+
+        // No scheduling type but has dueDate <= today (overdue or today)
+        if ((!t.schedulingType || t.schedulingType === 'none') && t.dueDate && t.dueDate <= todayStr) return true
+
+        return false
+      }
+
+      const toMoveToday = tasks.filter(isDueToday)
       if (toMoveToday.length > 0) {
         tasks = tasks.map((t) =>
           toMoveToday.some((r) => r.id === t.id)
