@@ -460,7 +460,7 @@ export function TaskModal({ task, defaultColumn = 'pending', defaultDueDate, onC
                     <option value="next">Dia habil siguiente</option>
                   </select>
                   <p className="text-[10px] font-body text-text-muted">
-                    Considera sabados, domingos y los feriados que registres en la vista de Feriados.
+                    Considera domingos y los feriados que registres en la vista de Feriados.
                   </p>
                 </div>
 

@@ -96,7 +96,7 @@ Las tareas recurrentes con `recurringEndDate` ya vencida se ignoran. Las que ya 
 - Primer o ultimo dia de cada mes
 - Primer lunes y ultimo viernes de cada mes
 - Cada **X** dias, semanas o meses
-- Ajuste al dia habil anterior o siguiente
+- Ajuste al dia habil anterior o siguiente (con domingo y feriados como no habiles)
 - Base de datos de **feriados por usuario** para afectar esos ajustes
 
 ### ⚡ Actualizaciones optimistas

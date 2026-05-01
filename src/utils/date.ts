@@ -64,7 +64,7 @@ function getLastWeekdayOfMonth(year: number, monthIndex: number, weekday: number
 
 function isWeekend(date: Date): boolean {
   const day = date.getDay()
-  return day === 0 || day === 6
+  return day === 0
 }
 
 function isHoliday(date: Date, holidays: Holiday[]): boolean {
