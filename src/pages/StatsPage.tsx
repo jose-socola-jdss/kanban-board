@@ -5,6 +5,7 @@ import {
 } from 'recharts'
 import { CheckCircle2, Clock, Flame, Target, TrendingUp, Zap, Award, AlertTriangle } from 'lucide-react'
 import { useKanbanStore } from '../store/kanbanStore'
+import { getTaskDateForSorting } from '../utils/date'
 
 const COLORS = {
   pending:   '#ff6b6b',
@@ -43,6 +44,7 @@ function StatCard({ icon: Icon, label, value, sub, color = 'teal' }: {
 export function StatsPage() {
   const tasks = useKanbanStore((s) => s.tasks)
   const activities = useKanbanStore((s) => s.activities)
+  const holidays = useKanbanStore((s) => s.holidays)
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -53,8 +55,9 @@ export function StatsPage() {
     const pending = tasks.filter((t) => t.column === 'pending')
     const inProgress = tasks.filter((t) => t.column === 'thisWeek')
     const overdue = tasks.filter((t) => {
-      if (t.column === 'completed' || !t.dueDate) return false
-      return new Date(t.dueDate + 'T00:00:00') < today
+      const dueDate = getTaskDateForSorting(t, holidays)
+      if (t.column === 'completed' || !dueDate) return false
+      return new Date(dueDate + 'T00:00:00') < today
     })
 
     // Completion rate
@@ -168,7 +171,7 @@ export function StatsPage() {
       weekGrowth, last7, last4Weeks, byPriority, byStatus, avgPerDay, streak, bestDayName,
       insights, projectStats,
     }
-  }, [tasks, activities])
+  }, [tasks, activities, holidays])
 
   const insightColors: Record<string, string> = {
     amber:   'bg-amber-500/8 border-amber-500/20 text-amber-400',

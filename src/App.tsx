@@ -11,6 +11,7 @@ import { TaskModal } from './components/TaskModal'
 import { ActivityModal } from './components/GoalModal'
 import { OverviewPage } from './pages/OverviewPage'
 import { CalendarPage } from './pages/CalendarPage'
+import { HolidaysPage } from './pages/HolidaysPage'
 import { StatsPage } from './pages/StatsPage'
 import { useTheme } from './hooks/useTheme'
 import { useKanbanStore } from './store/kanbanStore'
@@ -52,6 +53,30 @@ export default function App() {
     })
     return () => subscription.unsubscribe()
   }, [loadUserData])
+
+  useEffect(() => {
+    const userId = session?.user?.id
+    if (!userId) return
+
+    const refresh = () => loadUserData(userId)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+
+    const now = new Date()
+    const nextMidnight = new Date(now)
+    nextMidnight.setHours(24, 0, 5, 0)
+    const timeout = window.setTimeout(refresh, nextMidnight.getTime() - now.getTime())
+
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.clearTimeout(timeout)
+    }
+  }, [loadUserData, session?.user?.id])
 
   // ── Celebration queue ──────────────────────────────────────────────────────
   const enqueueActivityCelebration = useCallback((activity: ActivityCelebrationItem) => {
@@ -153,7 +178,7 @@ export default function App() {
           {activeView === 'projects' && <ActivitiesBoard />}
           {activeView === 'tasks'    && <Board onActivityCompleted={enqueueActivityCelebration} />}
 
-          {(activeView === 'overview' || activeView === 'calendar' || activeView === 'stats') && (
+          {(activeView === 'overview' || activeView === 'calendar' || activeView === 'holidays' || activeView === 'stats') && (
             <div className="px-6 md:px-10 pb-10 pt-6 max-w-[1400px] mx-auto w-full">
               {activeView === 'overview' && (
                 <OverviewPage
@@ -168,6 +193,7 @@ export default function App() {
                   onNewProject={handleNewProject}
                 />
               )}
+              {activeView === 'holidays' && <HolidaysPage />}
               {activeView === 'stats' && <StatsPage />}
             </div>
           )}

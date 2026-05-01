@@ -1,4 +1,4 @@
-import { LayoutGrid, List, CalendarDays, BarChart3, PanelLeftClose, PanelLeftOpen, Sun, Moon, LogOut } from 'lucide-react'
+import { LayoutGrid, List, CalendarDays, CalendarPlus2, BarChart3, PanelLeftClose, PanelLeftOpen, Sun, Moon, LogOut } from 'lucide-react'
 import { useKanbanStore } from '../store/kanbanStore'
 import type { ViewMode } from '../types'
 
@@ -6,6 +6,7 @@ const NAV_ITEMS: { view: ViewMode; icon: React.ElementType; label: string }[] = 
   { view: 'tasks',    icon: LayoutGrid,   label: 'Mi Tablero'    },
   { view: 'overview', icon: List,         label: 'Vista General' },
   { view: 'calendar', icon: CalendarDays, label: 'Calendario'    },
+  { view: 'holidays', icon: CalendarPlus2, label: 'Feriados'     },
   { view: 'stats',    icon: BarChart3,    label: 'Estadísticas'  },
 ]
 

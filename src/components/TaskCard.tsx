@@ -27,12 +27,13 @@ export function TaskCard({ task, column, onEdit, isCelebrating = false, isParaHo
   const deleteTask = useKanbanStore((s) => s.deleteTask)
   const activities = useKanbanStore((s) => s.activities)
   const tasks = useKanbanStore((s) => s.tasks)
+  const holidays = useKanbanStore((s) => s.holidays)
   const activeTaskId = useKanbanStore((s) => s.activeTaskId)
   const activity = activities.find((a) => a.id === task.activityId)
   const priority = PRIORITY_CONFIG[task.priority]
   const isCompleted = task.column === 'completed'
   const priorityHoverStyle = PRIORITY_HOVER_STYLES[task.priority]
-  const effectiveDueDate = getEffectiveDueDate(task) ?? activity?.dueDate
+  const effectiveDueDate = getEffectiveDueDate(task, holidays) ?? activity?.dueDate
   const activityTasks = tasks.filter((item) => item.activityId === task.activityId)
   const activityTaskIndex = activityTasks.findIndex((item) => item.id === task.id)
   const activityLabel = activity && activityTaskIndex !== -1

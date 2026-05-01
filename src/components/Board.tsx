@@ -26,7 +26,7 @@ interface BoardProps {
 }
 
 export function Board({ onActivityCompleted }: BoardProps) {
-  const { tasks, activities, moveTask, reorderTasks } = useKanbanStore()
+  const { tasks, activities, holidays, moveTask, reorderTasks } = useKanbanStore()
   const [activeTask, setActiveTask] = useState<Task | null>(null)
 
   const oneDayAgo = new Date(); oneDayAgo.setDate(oneDayAgo.getDate() - 1)
@@ -39,7 +39,7 @@ export function Board({ onActivityCompleted }: BoardProps) {
     }
     // Recurring: use next occurrence for window check
     if (t.schedulingType === 'recurring') {
-      const eff = getEffectiveDueDate(t)
+      const eff = getEffectiveDueDate(t, holidays)
       if (!eff) return false
       return isInWeekWindow(eff)
     }

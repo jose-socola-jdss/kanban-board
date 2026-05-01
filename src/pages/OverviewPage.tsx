@@ -3,6 +3,7 @@ import { Plus, Search, Filter, FolderKanban, ClipboardList, Trash2, CheckSquare,
 import { useKanbanStore } from '../store/kanbanStore'
 import { PRIORITY_CONFIG, COLUMNS } from '../types'
 import type { ColumnId, Priority, Task } from '../types'
+import { getTaskDateForSorting } from '../utils/date'
 
 type SortKey = 'createdAt' | 'dueDate' | 'priority' | 'title'
 type GroupKey = 'status' | 'project' | 'priority' | 'none'
@@ -18,6 +19,7 @@ interface OverviewPageProps {
 export function OverviewPage({ onNewTask, onNewProject, onEditTask }: OverviewPageProps) {
   const tasks = useKanbanStore((s) => s.tasks)
   const activities = useKanbanStore((s) => s.activities)
+  const holidays = useKanbanStore((s) => s.holidays)
   const deleteTask = useKanbanStore((s) => s.deleteTask)
   const moveTask = useKanbanStore((s) => s.moveTask)
 
@@ -47,14 +49,16 @@ export function OverviewPage({ onNewTask, onNewProject, onEditTask }: OverviewPa
         if (sortKey === 'priority') return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]
         if (sortKey === 'title') return a.title.localeCompare(b.title)
         if (sortKey === 'dueDate') {
-          if (!a.dueDate && !b.dueDate) return 0
-          if (!a.dueDate) return 1
-          if (!b.dueDate) return -1
-          return a.dueDate.localeCompare(b.dueDate)
+          const aDate = getTaskDateForSorting(a, holidays)
+          const bDate = getTaskDateForSorting(b, holidays)
+          if (!aDate && !bDate) return 0
+          if (!aDate) return 1
+          if (!bDate) return -1
+          return aDate.localeCompare(bDate)
         }
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       })
-  }, [tasks, search, filterStatus, filterPriority, filterProject, sortKey])
+  }, [tasks, search, filterStatus, filterPriority, filterProject, sortKey, holidays])
 
   const grouped = useMemo(() => {
     if (groupBy === 'none') return { 'Todas': filtered }
@@ -286,7 +290,8 @@ export function OverviewPage({ onNewTask, onNewProject, onEditTask }: OverviewPa
               groupTasks.map((task, i) => {
                 const activity = activities.find((a) => a.id === task.activityId)
                 const pCfg = PRIORITY_CONFIG[task.priority]
-                const dueDate = task.dueDate ? new Date(task.dueDate + 'T00:00:00') : null
+                const effectiveDueDate = getTaskDateForSorting(task, holidays)
+                const dueDate = effectiveDueDate ? new Date(effectiveDueDate + 'T00:00:00') : null
                 const isOverdue = dueDate && dueDate < today && task.column !== 'completed'
                 const dueDays = dueDate ? Math.round((dueDate.getTime() - today.getTime()) / 86400000) : null
                 const isSelected = selected.has(task.id)

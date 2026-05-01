@@ -4,6 +4,7 @@ import { useKanbanStore } from '../store/kanbanStore'
 import { PRIORITY_CONFIG } from '../types'
 import type { Task } from '../types'
 import { TaskModal } from '../components/TaskModal'
+import { getOccurrencesInRange, toDateKey } from '../utils/date'
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
@@ -16,6 +17,7 @@ interface CalendarPageProps {
 export function CalendarPage({ onNewTask, onNewProject }: CalendarPageProps) {
   const tasks = useKanbanStore((s) => s.tasks)
   const activities = useKanbanStore((s) => s.activities)
+  const holidays = useKanbanStore((s) => s.holidays)
 
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
@@ -66,14 +68,27 @@ export function CalendarPage({ onNewTask, onNewProject }: CalendarPageProps) {
 
   const tasksByDate = useMemo(() => {
     const map: Record<string, typeof tasks> = {}
+    const rangeStart = new Date(`${calGrid[0]?.date}T12:00:00`)
+    const rangeEnd = new Date(`${calGrid[calGrid.length - 1]?.date}T12:00:00`)
+
     tasks.forEach((t) => {
+      if (t.schedulingType === 'recurring') {
+        const occurrences = getOccurrencesInRange(t, rangeStart, rangeEnd, holidays, 128)
+        occurrences.forEach((occurrence) => {
+          const key = toDateKey(occurrence)
+          if (!map[key]) map[key] = []
+          map[key].push(t)
+        })
+        return
+      }
+
       const key = t.dueDate ?? null
       if (!key) return
       if (!map[key]) map[key] = []
       map[key].push(t)
     })
     return map
-  }, [tasks])
+  }, [calGrid, holidays, tasks])
 
   const selectedTasks = selectedDate ? (tasksByDate[selectedDate] ?? []) : []
   const todayStr = today.toISOString().slice(0, 10)

@@ -1,7 +1,21 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Task, ColumnId, Activity, Priority, ViewMode, SchedulingType, RecurringType } from '../types'
-import { getCurrentMonthKey, getNextOccurrence } from '../utils/date'
+import type {
+  Activity,
+  BusinessDayAdjustment,
+  ColumnId,
+  Holiday,
+  Priority,
+  RecurringType,
+  SchedulingType,
+  Task,
+  ViewMode,
+} from '../types'
+import {
+  getCurrentMonthKey,
+  isTaskDueOnDate,
+  shouldResetRecurringTask,
+} from '../utils/date'
 import { db } from '../lib/db'
 
 interface TaskInput {
@@ -16,6 +30,10 @@ interface TaskInput {
   recurringWeekDay?: number
   recurringMonthDay?: number
   recurringEndDate?: string
+  recurrenceInterval?: number
+  recurrenceOrdinal?: number
+  recurrenceMonth?: number
+  recurrenceBusinessDayAdjustment?: BusinessDayAdjustment
   scheduledStart?: string
   scheduledEnd?: string
 }
@@ -28,9 +46,16 @@ interface ActivityInput {
   column: ColumnId
 }
 
+interface HolidayInput {
+  name: string
+  date: string
+}
+
 interface KanbanStore {
   activities: Activity[]
   tasks: Task[]
+  holidays: Holiday[]
+  holidaysAvailable: boolean
   activeView: ViewMode
   selectedMonth: string
   userId: string | null
@@ -49,6 +74,9 @@ interface KanbanStore {
   deleteTask: (id: string) => void
   moveTask: (id: string, column: ColumnId) => void
   reorderTasks: (newTasks: Task[]) => void
+  addHoliday: (data: HolidayInput) => void
+  updateHoliday: (id: string, updates: Partial<Pick<Holiday, 'name' | 'date'>>) => void
+  deleteHoliday: (id: string) => void
   setActiveView: (view: ViewMode) => void
   setSelectedMonth: (monthKey: string) => void
   startTask: (id: string) => void
@@ -58,371 +86,440 @@ interface KanbanStore {
 export const useKanbanStore = create<KanbanStore>()(
   persist(
     (set, get) => ({
-  activities: [],
-  tasks: [],
-  activeView: 'tasks',
-  selectedMonth: getCurrentMonthKey(),
-  userId: null,
-  isLoading: false,
-  activeTaskId: null,
-  activeTaskStartedAt: null,
+      activities: [],
+      tasks: [],
+      holidays: [],
+      holidaysAvailable: true,
+      activeView: 'tasks',
+      selectedMonth: getCurrentMonthKey(),
+      userId: null,
+      isLoading: false,
+      activeTaskId: null,
+      activeTaskStartedAt: null,
 
-  loadUserData: async (userId) => {
-    const { tasks, activities } = get()
-    const isInitialLoad = tasks.length === 0 && activities.length === 0
-    set({ isLoading: isInitialLoad, userId })
-    try {
-      let [activities, tasks] = await Promise.all([
-        db.getActivities(userId),
-        db.getTasks(userId),
-      ])
-      // Auto-reset recurring tasks completed more than 1 day ago that still have future occurrences
-      const oneDayAgo = new Date(); oneDayAgo.setDate(oneDayAgo.getDate() - 1)
-      const toReset = tasks.filter((t) => {
-        if (t.schedulingType !== 'recurring' || t.column !== 'completed') return false
-        if (!t.completedAt || new Date(t.completedAt) >= oneDayAgo) return false
-        const next = getNextOccurrence(t)
-        if (!next) return false
-        if (t.recurringEndDate && next > new Date(t.recurringEndDate + 'T00:00:00')) return false
-        return true
-      })
-      if (toReset.length > 0) {
-        tasks = tasks.map((t) => toReset.some((r) => r.id === t.id)
-          ? { ...t, column: 'pending' as ColumnId, completedAt: undefined } : t)
-        await Promise.all(toReset.map((t) =>
-          db.updateTask(t.id, { column: 'pending' as ColumnId, completedAt: undefined }, userId).catch(console.error)
-        ))
-      }
+      loadUserData: async (userId) => {
+        const { tasks, activities } = get()
+        const isInitialLoad = tasks.length === 0 && activities.length === 0
+        set({ isLoading: isInitialLoad, userId })
 
-      // ── Auto-move tasks due today (fixed, overdue, or recurring) ────────────
-      const todayStr = new Date().toISOString().slice(0, 10)
-      const todayDate = new Date(todayStr + 'T00:00:00')
-      const todayDow = todayDate.getDay()       // 0=Sun … 6=Sat
-      const todayDom = todayDate.getDate()       // 1-31
+        try {
+          const [activitiesResult, tasksResult, holidaysResult] = await Promise.allSettled([
+            db.getActivities(userId),
+            db.getTasks(userId),
+            db.getHolidays(userId),
+          ])
 
-      const isDueToday = (t: (typeof tasks)[number]): boolean => {
-        // Already in Para Hoy or Finalizadas — no need to move
-        if (t.column !== 'pending') return false
+          if (activitiesResult.status !== 'fulfilled') throw activitiesResult.reason
+          if (tasksResult.status !== 'fulfilled') throw tasksResult.reason
 
-        if (t.schedulingType === 'recurring') {
-          // Check recurring end date
-          if (t.recurringEndDate && todayStr > t.recurringEndDate) return false
-          if (t.recurringType === 'daily') return true
-          if (t.recurringType === 'weekly') return t.recurringWeekDay === todayDow
-          if (t.recurringType === 'monthly') return t.recurringMonthDay === todayDom
-          return false
+          let nextActivities = activitiesResult.value
+          let nextTasks = tasksResult.value
+          const nextHolidays = holidaysResult.status === 'fulfilled' ? holidaysResult.value : []
+          const holidaysAvailable = holidaysResult.status === 'fulfilled'
+
+          if (holidaysResult.status === 'rejected') {
+            console.warn('No se pudo cargar la tabla holidays:', holidaysResult.reason)
+          }
+
+          const recurringToReset = nextTasks.filter((task) => shouldResetRecurringTask(task, nextHolidays))
+          if (recurringToReset.length > 0) {
+            nextTasks = nextTasks.map((task) => (
+              recurringToReset.some((candidate) => candidate.id === task.id)
+                ? { ...task, column: 'pending' as ColumnId, completedAt: undefined }
+                : task
+            ))
+
+            await Promise.all(recurringToReset.map((task) =>
+              db.updateTask(task.id, { column: 'pending' as ColumnId, completedAt: undefined }, userId).catch(console.error),
+            ))
+          }
+
+          const today = new Date()
+          const todayStr = today.toISOString().slice(0, 10)
+          const toMoveToday = nextTasks.filter((task) => {
+            if (task.column !== 'pending') return false
+            if (task.schedulingType === 'recurring') return isTaskDueOnDate(task, today, nextHolidays)
+            if (task.schedulingType === 'fixed') return task.dueDate === todayStr
+            return (!!task.dueDate && task.dueDate <= todayStr)
+          })
+
+          if (toMoveToday.length > 0) {
+            nextTasks = nextTasks.map((task) => (
+              toMoveToday.some((candidate) => candidate.id === task.id)
+                ? { ...task, column: 'thisWeek' as ColumnId }
+                : task
+            ))
+
+            await Promise.all(toMoveToday.map((task) =>
+              db.updateTask(task.id, { column: 'thisWeek' as ColumnId }, userId).catch(console.error),
+            ))
+          }
+
+          const activeTaskFromDb = nextTasks.find((task) => task.tags?.some((tag) => tag.startsWith('__ACTIVE_TASK:')))
+          const newActiveTaskId = activeTaskFromDb ? activeTaskFromDb.id : null
+          let newActiveTaskStartedAt = null
+
+          if (activeTaskFromDb) {
+            const tagStr = activeTaskFromDb.tags?.find((tag) => tag.startsWith('__ACTIVE_TASK:'))
+            newActiveTaskStartedAt = tagStr ? parseInt(tagStr.split(':')[1], 10) || Date.now() : Date.now()
+          }
+
+          set({
+            activities: nextActivities,
+            tasks: nextTasks,
+            holidays: nextHolidays,
+            holidaysAvailable,
+            activeTaskId: newActiveTaskId,
+            activeTaskStartedAt: newActiveTaskStartedAt,
+            isLoading: false,
+          })
+        } catch (err) {
+          console.error('Error cargando datos:', err)
+          set({ isLoading: false })
         }
+      },
 
-        // Fixed scheduling: dueDate === today
-        if (t.schedulingType === 'fixed' && t.dueDate === todayStr) return true
+      addActivity: (data) => {
+        const { userId, activities } = get()
+        if (!userId) return
+        const newActivity: Activity = {
+          ...data,
+          id: data.id ?? crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+        }
+        set({ activities: [...activities, newActivity] })
+        db.insertActivity(newActivity, userId, activities.length).catch((err) => {
+          console.error(err)
+          alert('Error al guardar actividad: ' + err.message)
+        })
+      },
 
-        // No scheduling type but has dueDate <= today (overdue or today)
-        if ((!t.schedulingType || t.schedulingType === 'none') && t.dueDate && t.dueDate <= todayStr) return true
+      updateActivity: (id, updates) => {
+        const { userId } = get()
+        if (!userId) return
+        set((state) => ({
+          activities: state.activities.map((activity) => (activity.id === id ? { ...activity, ...updates } : activity)),
+        }))
+        db.updateActivity(id, updates, userId).catch((err) => {
+          console.error(err)
+          alert('Error al actualizar actividad: ' + err.message)
+        })
+      },
 
-        return false
-      }
+      deleteActivity: (id) => {
+        const { userId } = get()
+        if (!userId) return
+        set((state) => ({
+          activities: state.activities.filter((activity) => activity.id !== id),
+          tasks: state.tasks.filter((task) => task.activityId !== id),
+        }))
+        db.deleteActivity(id, userId).catch((err) => {
+          console.error(err)
+          alert('Error al eliminar actividad: ' + err.message)
+        })
+      },
 
-      const toMoveToday = tasks.filter(isDueToday)
-      if (toMoveToday.length > 0) {
-        tasks = tasks.map((t) =>
-          toMoveToday.some((r) => r.id === t.id)
-            ? { ...t, column: 'thisWeek' as ColumnId }
-            : t
+      moveActivity: (id, column) => {
+        const { userId } = get()
+        if (!userId) return
+        const completedAt = column === 'completed' ? new Date().toISOString() : undefined
+        set((state) => ({
+          activities: state.activities.map((activity) => (
+            activity.id === id ? { ...activity, column, completedAt } : activity
+          )),
+        }))
+        db.updateActivity(id, { column, completedAt }, userId).catch((err) => {
+          console.error(err)
+          alert('Error al mover actividad: ' + err.message)
+        })
+      },
+
+      reorderActivities: (newActivities) => {
+        const { userId } = get()
+        if (!userId) return
+        set({ activities: newActivities })
+        db.reorderActivities(newActivities, userId).catch((err) => {
+          console.error(err)
+          alert('Error al reordenar actividades: ' + err.message)
+        })
+      },
+
+      addTask: (data) => {
+        const { userId, tasks } = get()
+        if (!userId) return
+        const newTask: Task = {
+          ...data,
+          id: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+        }
+        set({ tasks: [...tasks, newTask] })
+        db.insertTask(newTask, userId, tasks.length).catch((err) => {
+          console.error(err)
+          alert('Error al guardar tarea: ' + err.message)
+        })
+      },
+
+      addTasks: (dataList) => {
+        const { userId, tasks } = get()
+        if (!userId) return
+        const newTasks: Task[] = dataList.map((data) => ({
+          ...data,
+          id: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+        }))
+        const startPos = tasks.length
+        set({ tasks: [...tasks, ...newTasks] })
+        db.insertTasks(newTasks, userId, startPos).catch((err) => {
+          console.error(err)
+          alert('Error al guardar tareas: ' + err.message)
+        })
+      },
+
+      updateTask: (id, updates) => {
+        const { userId, activeTaskId } = get()
+        if (!userId) return
+        const now = new Date().toISOString()
+        const currentTask = get().tasks.find((task) => task.id === id)
+        const hasRecurrenceMetadataUpdate = (
+          'recurrenceInterval' in updates
+          || 'recurrenceOrdinal' in updates
+          || 'recurrenceMonth' in updates
+          || 'recurrenceBusinessDayAdjustment' in updates
         )
-        await Promise.all(toMoveToday.map((t) =>
-          db.updateTask(t.id, { column: 'thisWeek' as ColumnId }, userId).catch(console.error)
-        ))
-      }
+        const enriched = updates.column !== undefined
+          ? { ...updates, completedAt: updates.column === 'completed' ? now : undefined }
+          : updates
 
-      // Sync active task from DB tags
-      const activeTaskFromDb = tasks.find(t => t.tags?.some(tag => tag.startsWith('__ACTIVE_TASK:')))
-      const newActiveTaskId = activeTaskFromDb ? activeTaskFromDb.id : null
-      let newActiveTaskStartedAt = null
-      if (activeTaskFromDb) {
-        const tagStr = activeTaskFromDb.tags!.find(tag => tag.startsWith('__ACTIVE_TASK:'))!
-        newActiveTaskStartedAt = parseInt(tagStr.split(':')[1], 10) || Date.now()
-      }
-
-      set({ 
-        activities, 
-        tasks, 
-        activeTaskId: newActiveTaskId,
-        activeTaskStartedAt: newActiveTaskStartedAt,
-        isLoading: false 
-      })
-    } catch (err) {
-      console.error('Error cargando datos:', err)
-      set({ isLoading: false })
-    }
-  },
-
-  addActivity: (data) => {
-    const { userId, activities } = get()
-    if (!userId) return
-    const newActivity: Activity = {
-      ...data,
-      id: data.id ?? crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-    }
-    set({ activities: [...activities, newActivity] })
-    db.insertActivity(newActivity, userId, activities.length).catch((err) => {
-      console.error(err)
-      alert('Error al guardar actividad: ' + err.message)
-    })
-  },
-
-  updateActivity: (id, updates) => {
-    const { userId } = get()
-    if (!userId) return
-    set((state) => ({
-      activities: state.activities.map((a) => (a.id === id ? { ...a, ...updates } : a)),
-    }))
-    db.updateActivity(id, updates, userId).catch((err) => {
-      console.error(err)
-      alert('Error al actualizar actividad: ' + err.message)
-    })
-  },
-
-  deleteActivity: (id) => {
-    const { userId } = get()
-    if (!userId) return
-    set((state) => ({
-      activities: state.activities.filter((a) => a.id !== id),
-      tasks: state.tasks.filter((t) => t.activityId !== id),
-    }))
-    db.deleteActivity(id, userId).catch((err) => {
-      console.error(err)
-      alert('Error al eliminar actividad: ' + err.message)
-    })
-  },
-
-  moveActivity: (id, column) => {
-    const { userId } = get()
-    if (!userId) return
-    const completedAt = column === 'completed' ? new Date().toISOString() : undefined
-    set((state) => ({
-      activities: state.activities.map((a) =>
-        a.id === id ? { ...a, column, completedAt } : a,
-      ),
-    }))
-    db.updateActivity(id, { column, completedAt }, userId).catch((err) => {
-      console.error(err)
-      alert('Error al mover actividad: ' + err.message)
-    })
-  },
-
-  reorderActivities: (newActivities) => {
-    const { userId } = get()
-    if (!userId) return
-    set({ activities: newActivities })
-    db.reorderActivities(newActivities, userId).catch((err) => {
-      console.error(err)
-      alert('Error al reordenar actividades: ' + err.message)
-    })
-  },
-
-  addTask: (data) => {
-    const { userId, tasks } = get()
-    if (!userId) return
-    const newTask: Task = {
-      ...data,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-    }
-    set({ tasks: [...tasks, newTask] })
-    db.insertTask(newTask, userId, tasks.length).catch((err) => {
-      console.error(err)
-      alert('Error al guardar tarea: ' + err.message)
-    })
-  },
-
-  addTasks: (dataList) => {
-    const { userId, tasks } = get()
-    if (!userId) return
-    const newTasks: Task[] = dataList.map((data) => ({
-      ...data,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-    }))
-    const startPos = tasks.length
-    set({ tasks: [...tasks, ...newTasks] })
-    db.insertTasks(newTasks, userId, startPos).catch((err) => {
-      console.error(err)
-      alert('Error al guardar tareas: ' + err.message)
-    })
-  },
-
-  updateTask: (id, updates) => {
-    const { userId, activeTaskId } = get()
-    if (!userId) return
-    const now = new Date().toISOString()
-    const enriched = updates.column !== undefined
-      ? { ...updates, completedAt: updates.column === 'completed' ? now : undefined }
-      : updates
-
-    // Clear active task if it's completed or moved away from thisWeek
-    const clearsActive = activeTaskId === id && updates.column !== undefined && updates.column !== 'thisWeek'
-    if (clearsActive) {
-      const current = get().tasks.find((t) => t.id === id)
-      if (current) {
-        enriched.tags = current.tags?.filter((t) => !t.startsWith('__ACTIVE_TASK:')) || []
-      }
-    }
-
-    set((state) => {
-      const newTasks = state.tasks.map((t) => (t.id === id ? { ...t, ...enriched } : t))
-      const stateUpdate: Partial<KanbanStore> = { tasks: newTasks }
-      if (clearsActive) {
-        stateUpdate.activeTaskId = null
-        stateUpdate.activeTaskStartedAt = null
-      }
-      if (!updates.column) return stateUpdate
-      const updated = newTasks.find((t) => t.id === id)
-      if (!updated || !updated.activityId) return stateUpdate
-      const activityTasks = newTasks.filter((t) => t.activityId === updated.activityId)
-      const allDone = activityTasks.length > 0 && activityTasks.every((t) => t.column === 'completed')
-      const activity = state.activities.find((a) => a.id === updated.activityId)
-      if (allDone && activity && activity.column !== 'completed') {
-        const completedAt = now
-        db.updateActivity(activity.id, { column: 'completed' as ColumnId, completedAt }, userId).catch(console.error)
-        return {
-          ...stateUpdate,
-          activities: state.activities.map((a) =>
-            a.id === updated.activityId ? { ...a, column: 'completed' as ColumnId, completedAt } : a,
-          ),
+        if (hasRecurrenceMetadataUpdate && enriched.tags === undefined && currentTask?.tags) {
+          enriched.tags = currentTask.tags
         }
-      }
-      return stateUpdate
-    })
-    db.updateTask(id, enriched, userId).catch((err) => {
-      console.error(err)
-      alert('Error al actualizar tarea: ' + err.message)
-    })
-  },
 
-  deleteTask: (id) => {
-    const { userId, activeTaskId } = get()
-    if (!userId) return
-    const clearsActive = activeTaskId === id
-    set((state) => ({
-      tasks: state.tasks.filter((t) => t.id !== id),
-      ...(clearsActive ? { activeTaskId: null, activeTaskStartedAt: null } : {}),
-    }))
-    db.deleteTask(id, userId).catch((err) => {
-      console.error(err)
-      alert('Error al eliminar tarea: ' + err.message)
-    })
-  },
-
-  moveTask: (id, column) => {
-    const { userId, activeTaskId } = get()
-    if (!userId) return
-    const now = new Date().toISOString()
-    const completedAt = column === 'completed' ? now : undefined
-    const clearsActive = activeTaskId === id && column !== 'thisWeek'
-    let finalTags: string[] | undefined
-    if (clearsActive) {
-      const current = get().tasks.find((t) => t.id === id)
-      if (current) {
-        finalTags = current.tags?.filter((t) => !t.startsWith('__ACTIVE_TASK:')) || []
-      }
-    }
-
-    set((state) => {
-      const newTasks = state.tasks.map((t) =>
-        t.id === id ? { ...t, column, completedAt, ...(finalTags ? { tags: finalTags } : {}) } : t,
-      )
-      const stateUpdate: Partial<KanbanStore> = { tasks: newTasks }
-      if (clearsActive) {
-        stateUpdate.activeTaskId = null
-        stateUpdate.activeTaskStartedAt = null
-      }
-      const moved = newTasks.find((t) => t.id === id)
-      if (!moved || !moved.activityId) return stateUpdate
-      const activityTasks = newTasks.filter((t) => t.activityId === moved.activityId)
-      const allDone = activityTasks.length > 0 && activityTasks.every((t) => t.column === 'completed')
-      const activity = state.activities.find((a) => a.id === moved.activityId)
-      if (allDone && activity && activity.column !== 'completed') {
-        db.updateActivity(activity.id, { column: 'completed' as ColumnId, completedAt: now }, userId).catch(console.error)
-        return {
-          ...stateUpdate,
-          activities: state.activities.map((a) =>
-            a.id === moved.activityId ? { ...a, column: 'completed' as ColumnId, completedAt: now } : a,
-          ),
+        const clearsActive = activeTaskId === id && updates.column !== undefined && updates.column !== 'thisWeek'
+        if (clearsActive) {
+          const current = currentTask
+          if (current) {
+            enriched.tags = current.tags?.filter((tag) => !tag.startsWith('__ACTIVE_TASK:')) || []
+          }
         }
-      }
-      return stateUpdate
-    })
-    db.updateTask(id, { column, completedAt, ...(finalTags ? { tags: finalTags } : {}) }, userId).catch((err) => {
-      console.error(err)
-      alert('Error al mover tarea: ' + err.message)
-    })
-  },
 
-  reorderTasks: (newTasks) => {
-    const { userId } = get()
-    if (!userId) return
-    set({ tasks: newTasks })
-    db.reorderTasks(newTasks, userId).catch((err) => {
-      console.error(err)
-      alert('Error al reordenar tareas: ' + err.message)
-    })
-  },
+        set((state) => {
+          const newTasks = state.tasks.map((task) => (task.id === id ? { ...task, ...enriched } : task))
+          const stateUpdate: Partial<KanbanStore> = { tasks: newTasks }
 
-  setActiveView: (activeView) => set({ activeView }),
-  setSelectedMonth: (selectedMonth) => set({ selectedMonth }),
+          if (clearsActive) {
+            stateUpdate.activeTaskId = null
+            stateUpdate.activeTaskStartedAt = null
+          }
 
-  startTask: (id) => {
-    const { userId, tasks, activeTaskId } = get()
-    if (!userId) return
-    const now = Date.now()
-    const activeTag = `__ACTIVE_TASK:${now}__`
-    
-    set({ activeTaskId: id, activeTaskStartedAt: now })
+          if (!updates.column) return stateUpdate
 
-    // Clear tag from previously active task if any
-    if (activeTaskId && activeTaskId !== id) {
-      const prev = tasks.find(t => t.id === activeTaskId)
-      if (prev) {
-        const newTags = prev.tags?.filter(t => !t.startsWith('__ACTIVE_TASK:')) || []
-        get().updateTask(prev.id, { tags: newTags })
-      }
-    }
-    
-    // Add tag to new active task
-    const current = tasks.find(t => t.id === id)
-    if (current) {
-      const currentTags = current.tags?.filter(t => !t.startsWith('__ACTIVE_TASK:')) || []
-      get().updateTask(id, { tags: [...currentTags, activeTag] })
-    }
-  },
+          const updated = newTasks.find((task) => task.id === id)
+          if (!updated || !updated.activityId) return stateUpdate
 
-  stopTask: () => {
-    const { activeTaskId, tasks } = get()
-    const currentActiveId = activeTaskId
-    set({ activeTaskId: null, activeTaskStartedAt: null })
-    
-    if (currentActiveId) {
-      const prev = tasks.find(t => t.id === currentActiveId)
-      if (prev) {
-        const newTags = prev.tags?.filter(t => !t.startsWith('__ACTIVE_TASK:')) || []
-        get().updateTask(prev.id, { tags: newTags })
-      }
-    }
-  },
+          const activityTasks = newTasks.filter((task) => task.activityId === updated.activityId)
+          const allDone = activityTasks.length > 0 && activityTasks.every((task) => task.column === 'completed')
+          const activity = state.activities.find((item) => item.id === updated.activityId)
+
+          if (allDone && activity && activity.column !== 'completed') {
+            const completedAt = now
+            db.updateActivity(activity.id, { column: 'completed' as ColumnId, completedAt }, userId).catch(console.error)
+            return {
+              ...stateUpdate,
+              activities: state.activities.map((item) => (
+                item.id === updated.activityId ? { ...item, column: 'completed' as ColumnId, completedAt } : item
+              )),
+            }
+          }
+
+          return stateUpdate
+        })
+
+        db.updateTask(id, enriched, userId).catch((err) => {
+          console.error(err)
+          alert('Error al actualizar tarea: ' + err.message)
+        })
+      },
+
+      deleteTask: (id) => {
+        const { userId, activeTaskId } = get()
+        if (!userId) return
+        const clearsActive = activeTaskId === id
+        set((state) => ({
+          tasks: state.tasks.filter((task) => task.id !== id),
+          ...(clearsActive ? { activeTaskId: null, activeTaskStartedAt: null } : {}),
+        }))
+        db.deleteTask(id, userId).catch((err) => {
+          console.error(err)
+          alert('Error al eliminar tarea: ' + err.message)
+        })
+      },
+
+      moveTask: (id, column) => {
+        const { userId, activeTaskId } = get()
+        if (!userId) return
+        const now = new Date().toISOString()
+        const completedAt = column === 'completed' ? now : undefined
+        const clearsActive = activeTaskId === id && column !== 'thisWeek'
+        let finalTags: string[] | undefined
+
+        if (clearsActive) {
+          const current = get().tasks.find((task) => task.id === id)
+          if (current) {
+            finalTags = current.tags?.filter((tag) => !tag.startsWith('__ACTIVE_TASK:')) || []
+          }
+        }
+
+        set((state) => {
+          const newTasks = state.tasks.map((task) => (
+            task.id === id ? { ...task, column, completedAt, ...(finalTags ? { tags: finalTags } : {}) } : task
+          ))
+          const stateUpdate: Partial<KanbanStore> = { tasks: newTasks }
+
+          if (clearsActive) {
+            stateUpdate.activeTaskId = null
+            stateUpdate.activeTaskStartedAt = null
+          }
+
+          const moved = newTasks.find((task) => task.id === id)
+          if (!moved || !moved.activityId) return stateUpdate
+
+          const activityTasks = newTasks.filter((task) => task.activityId === moved.activityId)
+          const allDone = activityTasks.length > 0 && activityTasks.every((task) => task.column === 'completed')
+          const activity = state.activities.find((item) => item.id === moved.activityId)
+
+          if (allDone && activity && activity.column !== 'completed') {
+            db.updateActivity(activity.id, { column: 'completed' as ColumnId, completedAt: now }, userId).catch(console.error)
+            return {
+              ...stateUpdate,
+              activities: state.activities.map((item) => (
+                item.id === moved.activityId ? { ...item, column: 'completed' as ColumnId, completedAt: now } : item
+              )),
+            }
+          }
+
+          return stateUpdate
+        })
+
+        db.updateTask(id, { column, completedAt, ...(finalTags ? { tags: finalTags } : {}) }, userId).catch((err) => {
+          console.error(err)
+          alert('Error al mover tarea: ' + err.message)
+        })
+      },
+
+      reorderTasks: (newTasks) => {
+        const { userId } = get()
+        if (!userId) return
+        set({ tasks: newTasks })
+        db.reorderTasks(newTasks, userId).catch((err) => {
+          console.error(err)
+          alert('Error al reordenar tareas: ' + err.message)
+        })
+      },
+
+      addHoliday: (data) => {
+        const { userId, holidays, holidaysAvailable } = get()
+        if (!userId) return
+        const holiday: Holiday = {
+          id: crypto.randomUUID(),
+          name: data.name,
+          date: data.date,
+          createdAt: new Date().toISOString(),
+        }
+        set({ holidays: [...holidays, holiday].sort((a, b) => a.date.localeCompare(b.date)) })
+        db.insertHoliday(holiday, userId).catch((err) => {
+          console.error(err)
+          if (!holidaysAvailable) {
+            alert('La tabla holidays no existe en Supabase. Aplica la migración incluida en el repositorio.')
+            return
+          }
+          alert('Error al guardar feriado: ' + err.message)
+        })
+      },
+
+      updateHoliday: (id, updates) => {
+        const { userId, holidaysAvailable } = get()
+        if (!userId) return
+        set((state) => ({
+          holidays: state.holidays
+            .map((holiday) => (holiday.id === id ? { ...holiday, ...updates } : holiday))
+            .sort((a, b) => a.date.localeCompare(b.date)),
+        }))
+        db.updateHoliday(id, updates, userId).catch((err) => {
+          console.error(err)
+          if (!holidaysAvailable) {
+            alert('La tabla holidays no existe en Supabase. Aplica la migración incluida en el repositorio.')
+            return
+          }
+          alert('Error al actualizar feriado: ' + err.message)
+        })
+      },
+
+      deleteHoliday: (id) => {
+        const { userId, holidaysAvailable } = get()
+        if (!userId) return
+        set((state) => ({ holidays: state.holidays.filter((holiday) => holiday.id !== id) }))
+        db.deleteHoliday(id, userId).catch((err) => {
+          console.error(err)
+          if (!holidaysAvailable) {
+            alert('La tabla holidays no existe en Supabase. Aplica la migración incluida en el repositorio.')
+            return
+          }
+          alert('Error al eliminar feriado: ' + err.message)
+        })
+      },
+
+      setActiveView: (activeView) => set({ activeView }),
+      setSelectedMonth: (selectedMonth) => set({ selectedMonth }),
+
+      startTask: (id) => {
+        const { userId, tasks, activeTaskId } = get()
+        if (!userId) return
+        const now = Date.now()
+        const activeTag = `__ACTIVE_TASK:${now}__`
+
+        set({ activeTaskId: id, activeTaskStartedAt: now })
+
+        if (activeTaskId && activeTaskId !== id) {
+          const previous = tasks.find((task) => task.id === activeTaskId)
+          if (previous) {
+            const newTags = previous.tags?.filter((tag) => !tag.startsWith('__ACTIVE_TASK:')) || []
+            get().updateTask(previous.id, { tags: newTags })
+          }
+        }
+
+        const current = tasks.find((task) => task.id === id)
+        if (current) {
+          const currentTags = current.tags?.filter((tag) => !tag.startsWith('__ACTIVE_TASK:')) || []
+          get().updateTask(id, { tags: [...currentTags, activeTag] })
+        }
+      },
+
+      stopTask: () => {
+        const { activeTaskId, tasks } = get()
+        const currentActiveId = activeTaskId
+        set({ activeTaskId: null, activeTaskStartedAt: null })
+
+        if (currentActiveId) {
+          const previous = tasks.find((task) => task.id === currentActiveId)
+          if (previous) {
+            const newTags = previous.tags?.filter((tag) => !tag.startsWith('__ACTIVE_TASK:')) || []
+            get().updateTask(previous.id, { tags: newTags })
+          }
+        }
+      },
     }),
     {
       name: 'kanban-storage',
-      // Solo persistimos lo esencial, evitamos persistir estados de carga o el userId
-      // para que se manejen correctamente en el arranque
       partialize: (state) => ({
         activities: state.activities,
         tasks: state.tasks,
+        holidays: state.holidays,
+        holidaysAvailable: state.holidaysAvailable,
         activeView: state.activeView,
         selectedMonth: state.selectedMonth,
         activeTaskId: state.activeTaskId,
         activeTaskStartedAt: state.activeTaskStartedAt,
       }),
-    }
-  )
+    },
+  ),
 )

@@ -1,8 +1,27 @@
 export type Priority = 'low' | 'medium' | 'high'
 export type ColumnId = 'pending' | 'thisWeek' | 'completed'
-export type ViewMode = 'tasks' | 'projects' | 'overview' | 'calendar' | 'stats'
+export type ViewMode = 'tasks' | 'projects' | 'overview' | 'calendar' | 'stats' | 'holidays'
 export type SchedulingType = 'none' | 'fixed' | 'recurring'
-export type RecurringType = 'daily' | 'weekly' | 'monthly'
+export type BusinessDayAdjustment = 'none' | 'previous' | 'next'
+export type RecurringType =
+  | 'daily'
+  | 'weekly'
+  | 'monthly'
+  | 'yearly'
+  | 'monthlyFirstDay'
+  | 'monthlyLastDay'
+  | 'monthlyNthWeekday'
+  | 'monthlyLastWeekday'
+  | 'intervalDays'
+  | 'intervalWeeks'
+  | 'intervalMonths'
+
+export interface Holiday {
+  id: string
+  name: string
+  date: string
+  createdAt: string
+}
 
 export interface Activity {
   id: string
@@ -30,6 +49,10 @@ export interface Task {
   recurringWeekDay?: number    // 0-6 (JS: 0=Dom, 1=Lun, ..., 6=Sáb)
   recurringMonthDay?: number   // 1-31
   recurringEndDate?: string    // YYYY-MM-DD
+  recurrenceInterval?: number
+  recurrenceOrdinal?: number
+  recurrenceMonth?: number     // 1-12
+  recurrenceBusinessDayAdjustment?: BusinessDayAdjustment
   scheduledStart?: string      // HH:mm
   scheduledEnd?: string        // HH:mm
 }

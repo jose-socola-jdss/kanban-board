@@ -91,6 +91,14 @@ Las tareas recurrentes con `recurringEndDate` ya vencida se ignoran. Las que ya 
 - Tipos: **diaria**, **semanal** y **mensual**
 - Se reestablecen automáticamente al día siguiente de haberse completado
 
+### 🗓️ Programaciones especiales avanzadas
+- Misma fecha todos los años
+- Primer o ultimo dia de cada mes
+- Primer lunes y ultimo viernes de cada mes
+- Cada **X** dias, semanas o meses
+- Ajuste al dia habil anterior o siguiente
+- Base de datos de **feriados por usuario** para afectar esos ajustes
+
 ### ⚡ Actualizaciones optimistas
 - El estado local se actualiza inmediatamente y la operación se envía a Supabase en segundo plano
 
@@ -163,6 +171,10 @@ src/
 2. **Crear `.env.local`** con `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`
 3. **Base de datos**: Ejecutar el esquema SQL en Supabase SQL Editor
 4. **Ejecutar**: `npm run dev` → abre `http://localhost:5173`
+
+### Migracion adicional de feriados
+
+Aplica tambien el archivo `supabase/migrations/20260501_add_holidays.sql` para habilitar la vista de **Feriados** y los ajustes por dia habil en programaciones especiales.
 
 ---
 
