@@ -6,9 +6,14 @@ import type { ColumnId, Priority, Task } from '../types'
 import { getTaskDateForSorting } from '../utils/date'
 
 type SortKey = 'createdAt' | 'dueDate' | 'priority' | 'title'
-type GroupKey = 'status' | 'project' | 'priority' | 'none'
+type GroupKey = 'status' | 'project' | 'priority' | 'scheduling' | 'none'
 
 const PRIORITY_ORDER: Record<Priority, number> = { high: 0, medium: 1, low: 2 }
+const SCHEDULING_GROUP_LABELS = {
+  none: 'Sin fecha',
+  fixed: 'Fecha fija',
+  recurring: 'Programacion especial',
+} as const
 
 interface OverviewPageProps {
   onNewTask: () => void
@@ -28,7 +33,7 @@ export function OverviewPage({ onNewTask, onNewProject, onEditTask }: OverviewPa
   const [filterPriority, setFilterPriority] = useState<Priority | 'all'>('all')
   const [filterProject, setFilterProject] = useState<string>('all')
   const [sortKey, setSortKey] = useState<SortKey>('createdAt')
-  const [groupBy, setGroupBy] = useState<GroupKey>('status')
+  const [groupBy, setGroupBy] = useState<GroupKey>('scheduling')
   const [showFilters, setShowFilters] = useState(false)
 
   // Bulk selection
@@ -66,6 +71,9 @@ export function OverviewPage({ onNewTask, onNewProject, onEditTask }: OverviewPa
       let key = ''
       if (groupBy === 'status') key = COLUMNS.find((c) => c.id === t.column)?.label ?? t.column
       else if (groupBy === 'priority') key = PRIORITY_CONFIG[t.priority].label
+      else if (groupBy === 'scheduling') {
+        key = SCHEDULING_GROUP_LABELS[t.schedulingType ?? 'none']
+      }
       else if (groupBy === 'project') {
         const act = activities.find((a) => a.id === t.activityId)
         key = act ? act.title : 'Sin proyecto'
@@ -170,6 +178,7 @@ export function OverviewPage({ onNewTask, onNewProject, onEditTask }: OverviewPa
             <option value="status">Estado</option>
             <option value="project">Proyecto</option>
             <option value="priority">Prioridad</option>
+            <option value="scheduling">Tipo de programacion</option>
             <option value="none">Sin agrupar</option>
           </select>
         </div>

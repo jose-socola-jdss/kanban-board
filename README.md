@@ -72,6 +72,7 @@ Las tareas recurrentes con `recurringEndDate` ya vencida se ignoran. Las que ya 
 - **Eliminar al hacer hover**: ícono de papelera visible al pasar el cursor
 - **Acciones en masa**: selección múltiple para mover de columna o eliminar tareas en lote
 - **Búsqueda**, **filtros**, **agrupación** y **ordenamiento** avanzados
+- La agrupación por defecto organiza las tareas por tipo de programación: **Sin fecha**, **Fecha fija** y **Programación especial**
 
 ### 📊 Estadísticas
 - **8 KPIs**: tareas completadas, racha de días, comparativa semanal, promedio diario, tareas vencidas, etc.
