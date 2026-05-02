@@ -39,7 +39,8 @@ Plataforma de productividad personal para gestión de proyectos y tareas con tab
 ### ⏱️ Modo "En Progreso"
 - Banner en la parte superior del tablero que indica qué tarea está en curso
 - Temporizador en tiempo real (cuenta regresiva hasta la hora de fin programada)
-- Acciones rápidas: **Finalizar** tarea o enviarla **A la cola**
+- Acciones rápidas: **Detener**, **Finalizar** tarea o enviarla **A la cola**
+- **A la cola** reordena la tarea activa al final de **Para hoy** y detiene la sesión actual, sin iniciar otra automáticamente
 - El estado se sincroniza con Supabase para mantenerse en cualquier navegador o dispositivo
 
 ### 🕐 Programación de tareas ("Para hoy")

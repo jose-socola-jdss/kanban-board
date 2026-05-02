@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Timer, CheckCircle2, ChevronsDown, Play } from 'lucide-react'
+import { Timer, CheckCircle2, ChevronsDown, Pause, Play } from 'lucide-react'
 import { useKanbanStore } from '../store/kanbanStore'
 import type { ViewMode } from '../types'
 
@@ -93,7 +93,7 @@ export function InProgressBanner({ mode }: InProgressBannerProps) {
               <Play size={11} className="text-teal-400" />
             </div>
             <span className="text-xs font-body text-text-muted">
-              Ninguna tarea en progreso — presiona ▶ en "Para hoy" para comenzar
+              Ninguna tarea en progreso - presiona ▶ en "Para hoy" para comenzar
             </span>
           </div>
           {paraHoyTasks.length > 0 && (
@@ -137,7 +137,7 @@ export function InProgressBanner({ mode }: InProgressBannerProps) {
 
   const handleAlaCola = () => {
     const taskId = activeTask.id
-    // Send to bottom of Para hoy
+    // Send to bottom of Para hoy and stop instead of auto-starting another task.
     const paraHoyOthers = paraHoyTasks.filter((t) => t.id !== taskId)
     const reordered = [
       ...tasks.filter((t) => t.column !== 'thisWeek'),
@@ -146,9 +146,10 @@ export function InProgressBanner({ mode }: InProgressBannerProps) {
     ]
     reorderTasks(reordered)
     stopTask()
-    if (paraHoyOthers.length > 0) {
-      startTask(paraHoyOthers[0].id)
-    }
+  }
+
+  const handleDetener = () => {
+    stopTask()
   }
 
   const timeDisplay = activeTask.scheduledEnd
@@ -203,9 +204,17 @@ export function InProgressBanner({ mode }: InProgressBannerProps) {
         {/* Actions */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
+            onClick={handleDetener}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-body text-text-secondary bg-surface-3 hover:bg-surface-4 border border-border hover:border-border-hover transition-all"
+            title="Detener la tarea en progreso sin iniciar otra"
+          >
+            <Pause size={12} />
+            Detener
+          </button>
+          <button
             onClick={handleAlaCola}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-body text-text-secondary bg-surface-3 hover:bg-surface-4 border border-border hover:border-border-hover transition-all"
-            title="Enviar al final de Para hoy e iniciar la siguiente"
+            title="Enviar al final de Para hoy y detener"
           >
             <ChevronsDown size={12} />
             A la cola
