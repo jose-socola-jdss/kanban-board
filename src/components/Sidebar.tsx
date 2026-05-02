@@ -1,4 +1,4 @@
-import { LayoutGrid, List, CalendarDays, CalendarPlus2, BarChart3, PanelLeftClose, PanelLeftOpen, Sun, Moon, LogOut } from 'lucide-react'
+import { LayoutGrid, List, CalendarDays, CalendarPlus2, BarChart3, Sun, Moon, LogOut } from 'lucide-react'
 import { useKanbanStore } from '../store/kanbanStore'
 import type { ViewMode } from '../types'
 
@@ -18,11 +18,13 @@ interface SidebarProps {
   onToggleCollapse?: () => void
 }
 
-export function Sidebar({ isDark, onToggleTheme, onSignOut, collapsed }: SidebarProps) {
+export function Sidebar({ isDark, onToggleTheme, onSignOut, collapsed, onToggleCollapse }: SidebarProps) {
   const { activeView, setActiveView } = useKanbanStore()
 
   return (
     <aside
+      onDoubleClick={collapsed ? undefined : onToggleCollapse}
+      title={collapsed ? undefined : 'Doble clic para ocultar la barra lateral'}
       className={`
         fixed left-0 top-0 h-full z-50 flex flex-col items-center py-5 gap-1
         bg-surface-1/90 backdrop-blur-md border-r border-border/50
@@ -92,23 +94,5 @@ export function Sidebar({ isDark, onToggleTheme, onSignOut, collapsed }: Sidebar
         </button>
       </div>
     </aside>
-  )
-}
-
-// Collapse toggle button — shown outside sidebar so it remains visible when sidebar is hidden
-export function SidebarToggle({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
-  return (
-    <button
-      onClick={onToggle}
-      title={collapsed ? 'Mostrar barra lateral' : 'Ocultar barra lateral'}
-      className={`
-        fixed top-4 z-50 flex items-center justify-center w-7 h-7 rounded-lg
-        bg-surface-3 border border-border text-text-muted hover:text-text-primary hover:border-border-hover
-        shadow-card transition-all duration-300
-        ${collapsed ? 'left-2' : 'left-[52px]'}
-      `}
-    >
-      {collapsed ? <PanelLeftOpen size={13} /> : <PanelLeftClose size={13} />}
-    </button>
   )
 }

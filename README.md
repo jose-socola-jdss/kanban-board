@@ -81,7 +81,7 @@ Las tareas recurrentes con `recurringEndDate` ya vencida se ignoran. Las que ya 
 
 ### 🧭 Barra lateral colapsable
 - Sidebar fijo a la izquierda con íconos y tooltips para las cuatro vistas
-- **Botón de colapsar/expandir** para maximizar el espacio de trabajo
+- **Doble clic sobre la barra lateral** para ocultarla y **doble clic en el borde izquierdo** para volver a mostrarla
 - Controles unificados en la sidebar: **Modo claro/oscuro** (Sol/Luna) y **Cerrar sesión** (LogOut)
 - Acceso a: **Mi Tablero · Vista General · Calendario · Estadísticas**
 

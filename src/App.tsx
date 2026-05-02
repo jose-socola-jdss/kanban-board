@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, supabaseConfigured } from './lib/supabase'
 import { Header } from './components/Header'
-import { Sidebar, SidebarToggle } from './components/Sidebar'
+import { Sidebar } from './components/Sidebar'
 import { Board } from './components/Board'
 import { ActivitiesBoard } from './components/MonthlyBoard'
 import { ActivityCelebration } from './components/ActivityCelebration'
@@ -167,8 +167,13 @@ export default function App() {
         onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
       />
 
-      {/* Sidebar collapse toggle — always visible */}
-      <SidebarToggle collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((v) => !v)} />
+      {sidebarCollapsed && (
+        <div
+          onDoubleClick={() => setSidebarCollapsed(false)}
+          title="Doble clic para mostrar la barra lateral"
+          className="fixed left-0 top-0 z-40 h-full w-4"
+        />
+      )}
 
       {/* Main content */}
       <div className={`relative z-10 flex flex-col min-h-screen transition-all duration-300 ${mainPadding}`}>
